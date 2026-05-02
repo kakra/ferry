@@ -4,6 +4,13 @@ All notable changes to ferry will be documented in this file starting with the f
 
 The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and ferry follows semantic versioning after `v1.0.0`.
 
+## [1.0.2] - 2026-05-02
+
+### Added
+- Comprehensive branding support: Customize the application name, browser icon (favicon), and footer text via `config.yaml`.
+- Refined UI styles and layouts for better accessibility and a more professional look.
+- Better Dark Mode support for tables and the theme switcher.
+
 ## [1.0.1] - 2026-05-02
 
 ### Fixed
