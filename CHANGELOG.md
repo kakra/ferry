@@ -4,6 +4,15 @@ All notable changes to ferry will be documented in this file starting with the f
 
 The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and ferry follows semantic versioning after `v1.0.0`.
 
+## [1.0.3] - 2026-05-02
+
+### Added
+- Author and link [Security Model](docs/SECURITY_MODEL.md) to transparently explain ferry's hardening and architectural defense measures.
+
+### Security
+- Hardened `success_ids` tracking logic by validating ID ownership against the active share, preventing side-channel information leaks.
+- Enforced strict hex-color validation for `ui.primary_color` in the configuration to prevent potential CSS injection vectors.
+
 ## [1.0.2] - 2026-05-02
 
 ### Added
