@@ -1,6 +1,6 @@
 # Ferry Security Model 🛡️
 
-This document explains the security principles, architectural choices, and hardening measures that make Ferry a robust tool for secure file exchange. It serves as a technical reference for auditors and security-conscious users.
+This document summarizes implemented security properties, current hardening measures, and the verification practices used for Ferry. It is a technical reference for auditors and security-conscious users.
 
 ## 🏛️ Architectural Foundations
 
@@ -14,7 +14,7 @@ This document explains the security principles, architectural choices, and harde
 
 ### 3. ORM-First (Ent)
 - **Principle:** All database interactions happen through a typed ORM.
-- **Security Benefit:** Virtually eliminates SQL Injection risks by enforcing parameterized queries and typed schema definitions.
+- **Security Benefit:** Reduces SQL injection risk by enforcing typed, parameterized database queries and schema-backed access patterns.
 
 ---
 
@@ -22,7 +22,7 @@ This document explains the security principles, architectural choices, and harde
 
 ### 1. Authentication & Session Management
 - **Passwords:** All passwords (user and share) are hashed using **Argon2id**, the winner of the Password Hashing Competition.
-- **Sessions:** Secure cookies with `HttpOnly` and `SameSite=Lax`. Production mode strictly enforces the `Secure` flag when behind a reverse proxy.
+- **Sessions:** Cookies are configured with `HttpOnly` and `SameSite=Lax`. The `Secure` flag is enabled when ferry is deployed behind a reverse proxy.
 - **Rate Limiting:** Built-in protection for `/login` and `/unlock` endpoints (0.2 req/s) to prevent brute-force attacks.
 
 ### 2. Share Protection
@@ -31,13 +31,14 @@ This document explains the security principles, architectural choices, and harde
 - **Session Isolation:** Guests can only delete files they uploaded within their current session, unless the admin explicitly permits otherwise.
 
 ### 3. Input Validation & Sanitization
-- **Open Redirect Protection:** All `next` parameters in the login flow are sanitized to prevent malicious external redirects.
+- **Open Redirect Protection:** `next` parameters in the login flow are sanitized so redirects stay local.
 - **XSS Prevention:** Leverages Go's `html/template` package, which provides context-aware auto-escaping.
 - **Path Traversal:** File paths are constructed using hashes and internal IDs, never directly from user-supplied filenames.
+- **Configuration Injection Protection:** `ui.primary_color` is validated as a hex color code before it is accepted from configuration.
 
 ### 4. Information Leak Prevention
 - **Success ID Validation:** The UI logic for showing "Upload Success" badges validates every ID against the currently active share. This prevents probing for the existence of files in other shares.
-- **Minimal Error Messages:** Production mode suppresses detailed error traces to prevent information disclosure.
+- **Conservative Error Handling:** User-facing errors stay concise for expected validation and permission failures; detailed operational diagnostics remain in logs and test output.
 
 ---
 
@@ -50,4 +51,7 @@ Ferry is built using a **Multi-AI Orchestration** approach:
 - **OpenAI Codex:** Implementation, code reviews, and deep-dive debugging.
 - **Human Oversight:** Kai Krakow acts as the "Conductor," defining goals, validating every phase, and performing final quality assurance.
 
-Every release candidate undergoes a full SAST sweep and dependency scan before publication.
+## 🔍 Verification
+- GitHub CodeQL is enabled for the repository and is used to catch security regressions in pull requests.
+- The local release checklist requires `go test ./...`, `go vet ./...`, and `go test -race ./internal/api`.
+- Ad hoc audit sweeps are used during development to check for regressions such as cross-share `success_ids` leakage and configuration injection hazards.
