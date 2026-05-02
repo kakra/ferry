@@ -139,13 +139,28 @@ func (s *Server) renderLoginError(c echo.Context, username string, err string) e
 	})
 }
 
+func sanitizeNextRedirect(next string) string {
+	if next == "" {
+		return "/"
+	}
+
+	next = strings.ReplaceAll(next, "\\", "/")
+	target, err := url.Parse(next)
+	if err != nil {
+		return "/"
+	}
+
+	if target.Hostname() != "" || target.IsAbs() || !strings.HasPrefix(target.Path, "/") {
+		return "/"
+	}
+
+	return target.String()
+}
+
 func (s *Server) handleLoginPost(c echo.Context) error {
 	username := strings.TrimSpace(c.FormValue("username"))
 	password := c.FormValue("password")
-	next := c.QueryParam("next")
-	if !strings.HasPrefix(next, "/") {
-		next = "/" + next
-	}
+	next := sanitizeNextRedirect(c.QueryParam("next"))
 
 	if s.breakGlass {
 		if s.config.Auth.BootstrapPassword != "" && password == s.config.Auth.BootstrapPassword {
