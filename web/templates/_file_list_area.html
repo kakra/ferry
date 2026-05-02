@@ -1,0 +1,27 @@
+<div id="file-list-area"
+     hx-get="/s/{{ .ShareToken }}/files-fragment?success_ids={{ .UploadSuccessIDList }}"
+     hx-trigger="file-list-update from:body throttle:500ms"
+     hx-target="this"
+     hx-swap="outerHTML"
+     data-upload-success-ids="{{ .UploadSuccessIDList }}">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">{{ call .T "guest.available_files" }} (<span id="file-count">{{ len .Files }}</span>)</h3>
+    </div>
+
+    <div style="background: var(--card-bg); border-radius: 8px; box-shadow: 0 2px 4px var(--card-shadow); overflow: hidden;">
+        <div class="table-responsive">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 500px;">
+                <thead>
+                    <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                        <th style="padding: 1rem;">{{ call .T "guest.table.filename" }}</th>
+                        <th style="padding: 1rem;">{{ call .T "guest.table.date" }}</th>
+                        <th style="padding: 1rem; text-align: right;">{{ call .T "admin.table.actions" }}</th>
+                    </tr>
+                </thead>
+                <tbody id="file-list-body">
+                    {{ template "_file_list_body.html" . }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

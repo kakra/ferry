@@ -1,0 +1,18 @@
+services:
+  ferry:
+    build: .
+    container_name: ferry
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the configuration file (create your own based on config.example.yaml).
+      # This is writable so `docker compose run --rm ferry ./ferry init-config`
+      # can generate strong local secrets before the first start.
+      - ./config.yaml:/app/config.yaml
+      # Storage for blobs and temporary uploads
+      - ./data/storage:/app/data/storage
+      # Database directory (Mounting the directory is REQUIRED for SQLite WAL mode sidecar files)
+      - ./data/db:/app/data/db
+    restart: unless-stopped
+    # The server opens the database and runs migrations during startup.
+    command: ["serve"]

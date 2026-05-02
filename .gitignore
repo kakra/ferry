@@ -1,0 +1,18 @@
+# Binaries
+/ferry
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Dependencies
+/vendor/
+
+# Local configuration
+config.yaml
+
+# Runtime data
+/data/
+
+# Local agent metadata
+.codex

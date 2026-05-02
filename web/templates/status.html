@@ -1,0 +1,128 @@
+{{ define "content" }}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>{{ call .T "admin.status_title" }}</h1>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div id="cleanup-indicator" class="htmx-indicator" style="color: var(--text-muted); font-size: 0.8rem; margin-right: 0.5rem;">
+                {{ call .T "common.processing" }}...
+            </div>
+            <a href="/status" class="btn btn-sm btn-outline-secondary">{{ call .T "admin.status.refresh_logs" }}</a>
+            <form hx-post="/api/admin/cleanup" hx-target="#status-area" hx-indicator="#cleanup-indicator" style="display: contents;">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    {{ call .T "admin.status.run_cleanup" }}
+                </button>
+            </form>
+            <a href="/" class="btn btn-sm btn-secondary">{{ call .T "share_created.back" }}</a>
+        </div>
+    </div>
+
+    <div id="status-area"></div>
+
+    <div style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); display: grid; gap: 1.5rem;">
+        <!-- System Health Card -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow);">
+            <h3 style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                🛡️ {{ call .T "admin.status.system_health" }}
+            </h3>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--success-text); font-weight: bold; margin-bottom: 1rem;">
+                <span style="display: inline-block; width: 10px; height: 10px; background: var(--success-text); border-radius: 50%;"></span>
+                {{ call .T "common.server_healthy" }}
+            </div>
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <table style="width: 100%; font-size: 0.9rem; color: var(--text-muted);">
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.version" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .Version }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.disk_free" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .Stats.DiskFreeStr }} / {{ .Stats.DiskTotalStr }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Storage & CAS Efficiency -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow);">
+            <h3 style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                📊 {{ call .T "admin.status.storage_gc" }}
+            </h3>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <div style="font-size: 0.8rem; color: var(--footer-text); text-transform: uppercase; letter-spacing: 0.05rem;">{{ call .T "admin.status.deduplication_ratio" }}</div>
+                <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">
+                    {{ printf "%.2fx" .Stats.Deduplication }}
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <table style="width: 100%; font-size: 0.9rem; color: var(--text-muted);">
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.logical_files" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .Stats.FileCount }} ({{ .Stats.LogicalSizeStr }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.unique_blobs" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .Stats.BlobCount }} ({{ .Stats.PhysicalSizeStr }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.temp_files" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .Stats.TmpSizeStr }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- GC Worker Status -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow);">
+            <h3 style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                🧹 {{ call .T "admin.status.cleanup_worker" }}
+            </h3>
+            {{ if .WorkerStats.IsRunning }}
+                <div style="color: var(--download-text); font-weight: bold; margin-bottom: 1rem;">{{ call .T "admin.status.worker_running" }}</div>
+            {{ else }}
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                    {{ call .T "admin.status.last_run" }}: {{ if .WorkerStats.LastRun.IsZero }}{{ call .T "admin.status.never" }}{{ else }}{{ .WorkerStats.LastRun.Format (call .TS "common.date_time_format") }}{{ end }}
+                </div>
+            {{ end }}
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <table style="width: 100%; font-size: 0.9rem; color: var(--text-muted);">
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.blobs_swept" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .WorkerStats.LastSweptCount }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.tmp_removed" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .WorkerStats.LastTmpCleanCount }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.3rem 0;">{{ call .T "admin.status.orphans_deleted" }}:</td>
+                        <td style="text-align: right; font-weight: bold;">{{ .WorkerStats.LastOrphanCount }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Internal Log Viewer -->
+    <div class="terminal-log-container">
+        <div class="terminal-log-header">
+            <span style="font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 0.05rem;">{{ call .T "admin.status.system_logs" }}</span>
+            <span style="font-size: 0.7rem; color: #555;">{{ call .T "admin.status.newest_first" }}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+            {{ range .Logs }}
+                <div class="terminal-log-entry">
+                    <span class="terminal-log-timestamp">{{ .Timestamp }}</span>
+                    <div class="terminal-log-message">
+                        <span style="white-space: pre-wrap; word-break: break-word;">{{ .Message }}</span>
+                        {{ if gt .Count 1 }}
+                            <span class="terminal-log-repeat">x{{ .Count }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            {{ else }}
+                <div style="color: #555; font-style: italic;">{{ call .T "admin.status.no_logs" }}</div>
+            {{ end }}
+        </div>
+    </div>
+{{ end }}

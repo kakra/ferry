@@ -1,0 +1,41 @@
+{{ define "content" }}
+    <h1>{{ call .T "setup.title" }}</h1>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">{{ call .T "setup.subtitle" }}</p>
+
+    <form action="/setup" method="POST" style="max-width: 500px;" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+        
+        <div class="form-group">
+            <label for="bootstrap_password">{{ call .T "setup.bootstrap_password" }}</label>
+            <input type="password" id="bootstrap_password" name="bootstrap_password" class="form-control" required autofocus autocomplete="off"
+                   placeholder="{{ call .T "setup.bootstrap_password_hint" }}">
+        </div>
+
+        <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border-color);">
+
+        <div class="form-group">
+            <label for="username">{{ call .T "setup.username" }}</label>
+            <input type="text" id="username" name="username" class="form-control" value="{{ .Username }}" required autocomplete="off"
+                   placeholder="e.g. admin">
+        </div>
+
+        <div class="form-group">
+            <label for="display_name">{{ call .T "setup.display_name" }}</label>
+            <input type="text" id="display_name" name="display_name" class="form-control" value="{{ .DisplayName }}" required autocomplete="off"
+                   placeholder="e.g. System Administrator">
+        </div>
+
+        <div class="form-group">
+            <label for="password">{{ call .T "setup.password" }}</label>
+            <input type="password" id="password" name="password" class="form-control" required autocomplete="new-password">
+        </div>
+
+        {{ if .Error }}
+        <p style="color: var(--danger-text); font-weight: bold; margin-bottom: 1.5rem;">{{ call .T "setup.error_generic" }}</p>
+        {{ end }}
+
+        <button type="submit" class="btn" style="width: 100%;">
+            {{ call .T "setup.button" }}
+        </button>
+    </form>
+{{ end }}

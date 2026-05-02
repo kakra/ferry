@@ -1,0 +1,15 @@
+{{ $sessionID := .UploadSessionID }}
+{{ $successIDs := .UploadSuccessIDs }}
+{{ $token := .ShareToken }}
+{{ $isAdmin := .IsAdmin }}
+{{ $T := .T }}
+{{ $TS := .TS }}
+{{ range .Files }}
+    {{ template "_file_row.html" (dict "File" . "ShareToken" $token "UploadSessionID" $sessionID "UploadSuccessIDs" $successIDs "IsAdmin" $isAdmin "T" $T "TS" $TS "IsNew" false) }}
+{{ else }}
+<tr id="no-files-row">
+    <td colspan="3" style="padding: 2rem; text-align: center; color: var(--footer-text);">
+        {{ call .T "guest.no_files" }}
+    </td>
+</tr>
+{{ end }}

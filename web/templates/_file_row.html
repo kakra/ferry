@@ -1,0 +1,23 @@
+<tr id="file-row-{{ .File.ID }}" style="border-bottom: 1px solid var(--border-color); transition: background-color 2s;" {{ if .IsNew }}class="new-file-highlight"{{ end }}>
+    <td style="padding: 1rem; font-weight: 500; word-break: break-all;">
+        {{ .File.OriginalName }}
+        {{ if index .UploadSuccessIDs .File.ID.String }}
+            <span style="display: inline-flex; align-items: center; margin-left: 0.45rem; padding: 0.1rem 0.35rem; border-radius: 4px; background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); font-size: 0.75rem; font-weight: 700; white-space: nowrap;">
+                {{ call .T "guest.success" }}
+            </span>
+        {{ end }}
+    </td>
+    <td style="padding: 1rem; color: var(--text-muted); font-size: 0.9rem; white-space: nowrap;">{{ .File.CreatedAt.Format (call .TS "common.date_time_format") }}</td>
+    <td style="padding: 1rem; text-align: right;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="/s/{{ .ShareToken }}/files/{{ .File.ID }}/download" class="btn btn-sm btn-secondary">
+            {{ call .T "common.download" }}
+            </a>
+            {{ if or .IsAdmin (and .File.UploadSessionID (eq .File.UploadSessionID.String .UploadSessionID)) }}
+                <button onclick="deleteFile('{{ .File.ID }}')" class="btn btn-sm btn-outline-danger">
+                    {{ call .T "admin.delete" }}
+                </button>
+            {{ end }}
+        </div>
+    </td>
+</tr>

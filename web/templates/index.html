@@ -1,0 +1,393 @@
+{{ define "content" }}
+    <h1>{{ call .T "admin.title" }}</h1>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">{{ call .T "admin.logged_in" }}</p>
+
+    {{ if .BreakGlassMode }}
+    <div style="margin-bottom: 2rem; background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger-text); padding: 1rem; border-radius: 8px;">
+        <strong>{{ call .T "break_glass.banner" }}</strong><br>
+        {{ call .T "break_glass.restrictions" }}
+    </div>
+    {{ end }}
+    
+    {{ if and (not .BreakGlassMode) .CanManageShares }}
+    <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow); margin-bottom: 3rem;">
+        <h3 style="margin-top: 0; margin-bottom: 1.5rem;">{{ call .T "admin.create_share" }}</h3>
+        <form hx-post="/api/shares" hx-target="body" hx-indicator="#create-indicator">
+            <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+            
+            <div class="form-group">
+                <label for="share_title">{{ call .T "admin.form.share_title" }}</label>
+                <input type="text" id="share_title" name="title" class="form-control" required placeholder="e.g. Project X Assets">
+            </div>
+
+            <div class="form-group">
+                <label for="share_note">{{ call .T "admin.form.note" }} ({{ call .T "common.optional" }})</label>
+                <textarea id="share_note" name="note" class="form-control" placeholder="Instructions for the guest..." rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="share_expiration">{{ call .T "admin.form.expiration" }}</label>
+                <select id="share_expiration" name="expiration" class="form-control">
+                    {{ range .ExpirationOptions }}
+                    <option value="{{ .Value }}" {{ if eq $.DefaultExpiration .Value }}selected{{ end }}>{{ .Label }}</option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                <button type="submit" name="type" value="download" class="btn">
+                    📤 {{ call .T "admin.create_download_share" }}
+                </button>
+                <button type="submit" name="type" value="upload" class="btn btn-secondary">
+                    📥 {{ call .T "admin.create_upload_share" }}
+                </button>
+                <div id="create-indicator" class="htmx-indicator" style="font-size: 0.9rem; color: var(--text-muted);">
+                    {{ call .T "common.processing" }}...
+                </div>
+            </div>
+        </form>
+    </div>
+    {{ end }}
+
+    <div style="margin-top: 2rem;">
+        <h3>{{ call .T "admin.active_shares" }}</h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">{{ call .T "admin.link_security_note" }}</p>
+        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">{{ call .T "admin.filters.label" }}</span>
+                <a href="/?filter=all&sort={{ .CurrentSort }}" class="btn btn-sm {{ if eq .CurrentFilter "all" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.filters.all" }}</a>
+                <a href="/?filter=upload&sort={{ .CurrentSort }}" class="btn btn-sm {{ if eq .CurrentFilter "upload" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.filters.uploads" }}</a>
+                <a href="/?filter=download&sort={{ .CurrentSort }}" class="btn btn-sm {{ if eq .CurrentFilter "download" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.filters.downloads" }}</a>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">{{ call .T "admin.sort.label" }}</span>
+                <a href="/?filter={{ .CurrentFilter }}&sort=activity" class="btn btn-sm {{ if eq .CurrentSort "activity" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.sort.activity" }}</a>
+                <a href="/?filter={{ .CurrentFilter }}&sort=expiry" class="btn btn-sm {{ if eq .CurrentSort "expiry" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.sort.expiry" }}</a>
+                <a href="/?filter={{ .CurrentFilter }}&sort=created" class="btn btn-sm {{ if eq .CurrentSort "created" }}btn-secondary{{ else }}btn-outline-primary{{ end }}">{{ call .T "admin.sort.created" }}</a>
+            </div>
+        </div>
+        <div style="background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 2px 4px var(--card-shadow);">
+            <div class="table-responsive">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                            <th style="padding: 1rem; width: 40%;">{{ call .T "admin.form.share_title" }}</th>
+                            <th style="padding: 1rem;">{{ call .T "admin.table.type" }}</th>
+                            <th style="padding: 1rem;">{{ call .T "admin.table.last_activity" }}</th>
+                            <th style="padding: 1rem; text-align: right;">{{ call .T "admin.table.actions" }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Shares }}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 1rem;">
+                                <div style="font-weight: bold; word-break: break-all;">{{ .Title }}</div>
+                                <div style="margin-top: 0.6rem;">
+                                    <div style="height: 6px; background: {{ .LifetimeBackground }}; border-radius: 999px; overflow: hidden;">
+                                        <div style="width: {{ .LifetimePercent }}%; height: 100%; background: {{ .LifetimeBarColor }};"></div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+                                        <span>{{ .RemainingText }}</span>
+                                        <span>{{ .FileCount }} {{ call $.T "admin.table.files" }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; white-space: nowrap;">
+                                {{ if eq .Type "upload" }}
+                                    <span style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: var(--success-bg); color: var(--success-text); font-weight: bold; border: 1px solid var(--success-border);">
+                                        📥 {{ .Type }}
+                                    </span>
+                                {{ else }}
+                                    <span style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: var(--download-bg); color: var(--download-text); font-weight: bold; border: 1px solid var(--download-border);">
+                                        📤 {{ .Type }}
+                                    </span>
+                                {{ end }}
+                            </td>
+                            <td style="padding: 1rem; font-size: 0.9rem; color: var(--text-muted); white-space: nowrap;">{{ .LastActivityText }}</td>
+                            <td style="padding: 1rem; text-align: right;">
+                                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; white-space: nowrap; flex-wrap: wrap;">
+                                    {{ if $.CanManageShares }}
+                                    <a href="/admin/shares/{{ .ID }}/prepare" class="btn btn-sm btn-outline-primary">
+                                        {{ if eq .Type "upload" }}{{ call $.T "admin.open_share" }}{{ else }}{{ call $.T "admin.prepare" }}{{ end }}
+                                    </a>
+                                    <form hx-post="/admin/shares/{{ .ID }}/password" hx-target="body" hx-indicator="#rotate-indicator-{{ .ID }}" style="margin: 0; display: inline-block;">
+                                        <input type="hidden" name="csrf" value="{{ $.CSRFToken }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">
+                                            {{ call $.T "admin.rotate_password" }}
+                                        </button>
+                                        <span id="rotate-indicator-{{ .ID }}" class="htmx-indicator" style="position: absolute; font-size: 0.7rem; color: var(--text-muted); margin-left: 0.3rem;">
+                                            ...
+                                        </span>
+                                    </form>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="toggleShareDeleteForm('{{ .ID }}')">
+                                        {{ call $.T "admin.delete" }}
+                                    </button>
+                                    {{ else if $.BreakGlassMode }}
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="toggleShareDeleteForm('{{ .ID }}')">
+                                        {{ call $.T "admin.delete" }}
+                                    </button>
+                                    {{ else }}
+                                    <span style="font-size: 0.8rem; color: var(--footer-text);">{{ call $.T "admin.no_share_permissions" }}</span>
+                                    {{ end }}
+                                </div>
+                                {{ if or $.CanManageShares $.BreakGlassMode }}
+                                <div id="share-delete-form-{{ .ID }}" style="display: none; margin-top: 0.75rem; margin-left: auto; max-width: 20rem; text-align: left; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 8px; padding: 0.85rem;">
+                                    <div style="font-weight: 600; color: var(--danger-text); margin-bottom: 0.3rem;">
+                                        {{ call $.T "admin.delete_share_title" }}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--danger-muted-text); margin-bottom: 0.75rem;">
+                                        {{ call $.T "admin.delete_share_details" "count" (printf "%d" .FileCount) }}
+                                    </div>
+                                    <form hx-post="/admin/shares/{{ .ID }}/delete" hx-target="body" style="margin: 0; display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
+                                        <input type="hidden" name="csrf" value="{{ $.CSRFToken }}">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="hideShareDeleteForm('{{ .ID }}')">
+                                            {{ call $.T "admin.cancel" }}
+                                        </button>
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            {{ call $.T "admin.delete" }}
+                                        </button>
+                                    </form>
+                                </div>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="4" style="padding: 3rem; text-align: center; color: var(--footer-text);">
+                                {{ call .T "admin.no_shares" }}
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div id="status-area" style="margin-top: 3rem;"></div>
+
+    {{ $canManageUsers := false }}
+    {{ if .CurrentUser }}
+        {{ $canManageUsers = .CurrentUser.CanManageUsers }}
+    {{ else if or .BreakGlassMode (not .Users) }}
+        {{ $canManageUsers = true }}
+    {{ end }}
+
+    {{ if $canManageUsers }}
+    <div style="margin-top: 5rem; border-top: 2px solid var(--border-color); padding-top: 3rem;">
+        <h2 id="users">{{ call .T "admin.users.title" }}</h2>
+        
+        {{ if not .Users }}
+        <!-- Bootstrap Mode: ONLY allow /setup path -->
+        <div style="background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); padding: 2rem; border-radius: 8px; margin-bottom: 3rem; text-align: center;">
+            <h3 style="margin-top: 0;">🛠️ {{ call .T "setup.title" }}</h3>
+            <p>{{ call .T "login.setup_link" }}</p>
+            <a href="/setup" class="btn" style="margin-top: 1rem;">{{ call .T "admin.users.create" }} (Admin)</a>
+        </div>
+        {{ else }}
+        <!-- Normal Mode: standard creation form -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow); margin-bottom: 3rem;">
+            <h3 style="margin-top: 0; margin-bottom: 1.5rem;">{{ call .T "admin.users.create" }}</h3>
+            <form hx-post="/admin/users" hx-target="body" autocomplete="off">
+                <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="user_username">{{ call .T "admin.users.username" }}</label>
+                        <input type="text" id="user_username" name="username" class="form-control" required placeholder="e.g. jdoe" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="user_display_name">{{ call .T "admin.users.display_name" }}</label>
+                        <input type="text" id="user_display_name" name="display_name" class="form-control" required placeholder="e.g. John Doe" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="user_password">{{ call .T "admin.users.password" }}</label>
+                    <input type="password" id="user_password" name="password" class="form-control" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn">{{ call .T "admin.users.create" }}</button>
+            </form>
+        </div>
+        {{ end }}
+
+        <!-- Users Table -->
+        <div style="background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 2px 4px var(--card-shadow);">
+            <div class="table-responsive">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: var(--table-header-bg); border-bottom: 2px solid var(--border-color);">
+                            <th style="padding: 1rem;">{{ call .T "admin.users.username" }}</th>
+                            <th style="padding: 1rem;">{{ call .T "admin.users.status" }}</th>
+                            <th style="padding: 1rem;">{{ call .T "admin.table.permissions" }}</th>
+                            <th style="padding: 1rem; text-align: right;">{{ call .T "admin.table.actions" }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Users }}
+                        <tr style="border-bottom: 1px solid var(--border-color); {{ if .Disabled }}opacity: 0.6; background: var(--table-row-muted-bg);{{ end }}">
+                            <td style="padding: 1rem;">
+                                <div style="font-weight: bold;">{{ .DisplayName }}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                    <code>{{ .Username }}</code> 
+                                    <span style="font-size: 0.75rem; background: var(--badge-bg); padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.3rem; text-transform: uppercase;">{{ .AuthSource }}</span>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem;">
+                                {{ if .Disabled }}
+                                    <span style="color: var(--danger-text); font-weight: bold; font-size: 0.85rem;">🚫 {{ call $.T "admin.users.disabled" }}</span>
+                                {{ else }}
+                                    <span style="color: var(--success-text); font-weight: bold; font-size: 0.85rem;">✅ {{ call $.T "admin.users.enabled" }}</span>
+                                {{ end }}
+                            </td>
+                            <td style="padding: 1rem;">
+                                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                                        <input type="checkbox" name="can-manage-all-shares" hx-post="/admin/users/{{ .ID }}/permissions/can-manage-all-shares" hx-target="body" {{ if .CanManageAllShares }}checked{{ end }} {{ if and $.CurrentUser (eq .ID $.CurrentUser.ID) }}disabled title="{{ call $.T "admin.users.self_protection" }}"{{ end }}>
+                                        {{ call $.T "admin.users.perm_manage_shares" }}
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                                        <input type="checkbox" name="can-manage-users" hx-post="/admin/users/{{ .ID }}/permissions/can-manage-users" hx-target="body" {{ if .CanManageUsers }}checked{{ end }} {{ if and $.CurrentUser (eq .ID $.CurrentUser.ID) }}disabled title="{{ call $.T "admin.users.self_protection" }}"{{ end }}>
+                                        {{ call $.T "admin.users.perm_manage_users" }}
+                                    </label>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; text-align: right;">
+                                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+                                    {{ if or (not $.CurrentUser) (ne .ID $.CurrentUser.ID) }}
+                                    <form hx-post="/admin/users/{{ .ID }}/toggle-disabled" hx-target="body" style="margin: 0;">
+                                        <input type="hidden" name="csrf" value="{{ $.CSRFToken }}">
+                                        <button type="submit" class="btn btn-sm {{ if .Disabled }}btn-outline-primary{{ else }}btn-outline-danger{{ end }}">
+                                            {{ if .Disabled }}{{ call $.T "admin.users.enable" }}{{ else }}{{ call $.T "admin.users.disable" }}{{ end }}
+                                        </button>
+                                    </form>
+                                    {{ end }}
+                                    
+                                    <button type="button" onclick="toggleUserPasswordForm('{{ .ID }}')" class="btn btn-sm btn-outline-warning">
+                                        {{ call $.T "admin.users.reset_password" }}
+                                    </button>
+                                    {{ if and .Disabled (eq .AuthSource "local") }}
+                                    <button type="button" onclick="toggleUserDeleteForm('{{ .ID }}')" class="btn btn-sm btn-outline-danger">
+                                        {{ call $.T "admin.users.delete" }}
+                                    </button>
+                                    {{ end }}
+                                </div>
+                                <div id="user-password-form-{{ .ID }}" style="display: none; margin-top: 0.75rem; margin-left: auto; max-width: 20rem; text-align: left; background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 8px; padding: 0.85rem;">
+                                    <form hx-post="/admin/users/{{ .ID }}/password" hx-target="body" autocomplete="off" style="margin: 0;">
+                                        <input type="hidden" name="csrf" value="{{ $.CSRFToken }}">
+                                        <label for="reset-password-{{ .ID }}" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--warning-text); margin-bottom: 0.45rem;">
+                                            {{ call $.T "admin.users.new_password" }}
+                                        </label>
+                                        <input type="password" id="reset-password-{{ .ID }}" name="password" class="form-control" required autocomplete="new-password">
+                                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; flex-wrap: wrap;">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="hideUserPasswordForm('{{ .ID }}')">
+                                                {{ call $.T "admin.cancel" }}
+                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                                {{ call $.T "admin.users.reset_password" }}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                {{ if and .Disabled (eq .AuthSource "local") }}
+                                <div id="user-delete-form-{{ .ID }}" style="display: none; margin-top: 0.75rem; margin-left: auto; max-width: 20rem; text-align: left; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 8px; padding: 0.85rem;">
+                                    <div style="font-weight: 600; color: var(--danger-text); margin-bottom: 0.3rem;">
+                                        {{ call $.T "admin.users.delete_title" }}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--danger-muted-text); margin-bottom: 0.75rem;">
+                                        {{ call $.T "admin.users.delete_hint" }}
+                                    </div>
+                                    <form hx-post="/admin/users/{{ .ID }}/delete" hx-target="body" style="margin: 0; display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
+                                        <input type="hidden" name="csrf" value="{{ $.CSRFToken }}">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="hideUserDeleteForm('{{ .ID }}')">
+                                            {{ call $.T "admin.cancel" }}
+                                        </button>
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            {{ call $.T "admin.users.delete" }}
+                                        </button>
+                                    </form>
+                                </div>
+                                {{ end }}
+                            </td>
+                        </tr>
+                        {{ else }}
+                        <tr>
+                            <td colspan="4" style="padding: 3rem; text-align: center; color: var(--footer-text);">
+                                {{ call .T "admin.users.no_users" }}
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{ end }}
+
+    <script>
+        function hideShareDeleteForm(id) {
+            const form = document.getElementById('share-delete-form-' + id);
+            if (form) {
+                form.style.display = 'none';
+            }
+        }
+
+        function toggleShareDeleteForm(id) {
+            document.querySelectorAll('[id^="share-delete-form-"]').forEach((el) => {
+                if (el.id !== 'share-delete-form-' + id) {
+                    el.style.display = 'none';
+                }
+            });
+
+            const form = document.getElementById('share-delete-form-' + id);
+            if (!form) return;
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function hideUserPasswordForm(id) {
+            const form = document.getElementById('user-password-form-' + id);
+            if (form) {
+                form.style.display = 'none';
+            }
+        }
+
+        function toggleUserPasswordForm(id) {
+            hideUserDeleteForm(id);
+            document.querySelectorAll('[id^="user-password-form-"]').forEach((el) => {
+                if (el.id !== 'user-password-form-' + id) {
+                    el.style.display = 'none';
+                }
+            });
+
+            const form = document.getElementById('user-password-form-' + id);
+            if (!form) return;
+            const isVisible = form.style.display !== 'none';
+            form.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                const input = form.querySelector('input[name="password"]');
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
+        }
+
+        function hideUserDeleteForm(id) {
+            const form = document.getElementById('user-delete-form-' + id);
+            if (form) {
+                form.style.display = 'none';
+            }
+        }
+
+        function toggleUserDeleteForm(id) {
+            hideUserPasswordForm(id);
+            document.querySelectorAll('[id^="user-delete-form-"]').forEach((el) => {
+                if (el.id !== 'user-delete-form-' + id) {
+                    el.style.display = 'none';
+                }
+            });
+
+            const form = document.getElementById('user-delete-form-' + id);
+            if (!form) return;
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+    </script>
+{{ end }}

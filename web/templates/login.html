@@ -1,0 +1,53 @@
+{{ define "content" }}
+    <h1>{{ call .T "login.title" }}</h1>
+    
+    {{ if .BreakGlassMode }}
+    <div style="background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger-text); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+        <strong>{{ call .T "break_glass.banner" }}</strong><br>
+        {{ call .T "break_glass.login_hint" }}
+    </div>
+    {{ else if .SetupNeeded }}
+    <div style="background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+        <strong>{{ call .T "login.bootstrap_hint" }}</strong>
+    </div>
+    {{ end }}
+
+    {{ if not .SetupNeeded }}
+    <form action="/login?next={{ .Next }}" method="POST" style="max-width: 400px; margin-top: 2rem;" autocomplete="on">
+        <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+        
+        {{ if not .BreakGlassMode }}
+        <div class="form-group">
+            <label for="username">{{ call .T "login.username" }}</label>
+            <input type="text" id="username" name="username" class="form-control" value="{{ .Username }}" required autofocus autocomplete="username">
+        </div>
+        {{ end }}
+
+        <div class="form-group">
+            <label for="password">
+                {{ if .BreakGlassMode }}
+                    {{ call .T "login.password_only" }}
+                {{ else }}
+                    {{ call .T "login.password" }}
+                {{ end }}
+            </label>
+            <input type="password" id="password" name="password" class="form-control" required autocomplete="{{ if .BreakGlassMode }}off{{ else }}current-password{{ end }}" {{ if .BreakGlassMode }}autofocus{{ end }}>
+        </div>
+
+        {{ if .Error }}
+        <p style="color: var(--danger-text); font-weight: bold; margin-bottom: 1.5rem;">{{ call .T "login.error_invalid" }}</p>
+        {{ end }}
+
+        <button type="submit" class="btn" style="width: 100%;">
+            {{ call .T "login.button" }}
+        </button>
+    </form>
+    {{ end }}
+
+    {{ if .SetupNeeded }}
+    <p style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        {{ call .T "login.no_account" }} 
+        <a href="/setup" style="color: var(--primary-color); font-weight: bold;">{{ call .T "login.setup_link" }}</a>
+    </p>
+    {{ end }}
+{{ end }}

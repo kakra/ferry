@@ -1,0 +1,46 @@
+{{ define "content" }}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>{{ call .T "admin.create_share" }}</h1>
+        <a href="/" class="btn btn-sm btn-secondary">{{ call .T "share_created.back" }}</a>
+    </div>
+
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px var(--card-shadow);">
+        <form hx-post="/api/shares" hx-target="body">
+            <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+            
+            <div class="form-group">
+                <label for="share_title">{{ call .T "admin.form.share_title" }}</label>
+                <input type="text" id="share_title" name="title" class="form-control" required 
+                       value="{{ .Title }}" placeholder="e.g. Project X Assets">
+            </div>
+
+            <div class="form-group">
+                <label for="share_note">{{ call .T "admin.form.note" }} ({{ call .T "common.optional" }})</label>
+                <textarea id="share_note" name="note" class="form-control" 
+                          placeholder="Instructions for the guest..." rows="4">{{ .Note }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="share_expiration">{{ call .T "admin.form.expiration" }}</label>
+                <select id="share_expiration" name="expiration" class="form-control">
+                    {{ range .ExpirationOptions }}
+                    <option value="{{ .Value }}" {{ if eq $.DefaultExpiration .Value }}selected{{ end }}>{{ .Label }}</option>
+                    {{ end }}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                <button type="submit" name="type" value="download" class="btn">
+                    📤 {{ call .T "admin.create_download_share" }}
+                </button>
+                <button type="submit" name="type" value="upload" class="btn btn-secondary">
+                    📥 {{ call .T "admin.create_upload_share" }}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <p style="margin-top: 2rem; color: var(--text-muted); font-size: 0.9rem; text-align: center;">
+        {{ call .T "admin.create_focused_hint" }}
+    </p>
+{{ end }}

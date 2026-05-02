@@ -1,0 +1,318 @@
+{{ define "content" }}
+    <style>
+        @keyframes highlight {
+            0% { background-color: var(--warning-bg); }
+            100% { background-color: transparent; }
+        }
+        @keyframes scanner {
+            0% { transform: translateX(150%); }
+            100% { transform: translateX(-100%); }
+        }
+        .progress-scanner {
+            width: 100% !important;
+            background-color: var(--primary-color) !important;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-scanner::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4), transparent);
+            animation: scanner 1.5s infinite ease-in-out alternate;
+        }
+        .new-file-highlight {
+            animation: highlight 3s ease-out;
+        }
+        .upload-drop-zone {
+            margin: 1.5rem 0;
+            padding: 2rem;
+            border: 2px dashed var(--control-border);
+            border-radius: 8px;
+            text-align: center;
+            background: var(--surface-muted);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .upload-drop-zone.is-dragging {
+            background: rgba(var(--primary-rgb, 59, 130, 246), 0.12);
+            border-color: var(--primary-color);
+        }
+        .upload-progress-row {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px var(--card-shadow);
+        }
+        .upload-progress-track {
+            width: 100%;
+            height: 10px;
+            background: var(--badge-bg);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .upload-status {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+        .upload-status.is-error {
+            color: var(--danger-text);
+        }
+    </style>
+    <div style="margin-bottom: 2rem;">
+        <h1 style="margin-bottom: 0.5rem;">{{ .Share.Title }}</h1>
+        {{ if .PublicShareURL }}
+        <div style="margin: 1rem 0; background: rgba(var(--primary-rgb, 59, 130, 246), 0.1); border: 1px solid rgba(var(--primary-rgb, 59, 130, 246), 0.2); color: var(--primary-color); padding: 1rem; border-radius: 8px;">
+            <div style="font-weight: bold; margin-bottom: 0.5rem;">{{ call .T "share_created.public_url" }}</div>
+            <code id="public-share-url" style="display: block; padding: 0.75rem; background: var(--control-bg); border: 1px solid var(--border-color); word-break: break-all; margin-bottom: 0.75rem;">{{ .PublicShareURL }}</code>
+            <button onclick="copyPublicShareUrl()" class="btn btn-sm btn-outline-primary">
+                {{ call .T "share_created.copy" }}
+            </button>
+        </div>
+        {{ else if .IsAdmin }}
+        <div style="margin: 1rem 0; background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); padding: 1rem; border-radius: 8px;">
+            <strong>{{ call .T "admin.public_link_unavailable_title" }}</strong><br>
+            {{ call .T "admin.public_link_unavailable_hint" }}
+        </div>
+        {{ end }}
+        {{ if .Share.Note }}
+        <p style="background: var(--warning-bg); padding: 1rem; border-left: 4px solid var(--warning-border); border-radius: 4px; color: var(--warning-text); font-size: 0.95rem; line-height: 1.5;">
+            {{ .Share.Note }}
+        </p>
+        {{ end }}
+    </div>
+
+    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+        <h2 style="font-size: 1.2rem; margin-top: 2rem;">{{ call .T "guest.upload_title" }}</h2>
+    {{ end }}
+    
+    <!-- Upload Section: guests upload to upload-shares; admins upload only when preparing download-shares -->
+    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+    <div id="upload-container" class="upload-drop-zone">
+        <p>{{ call .T "guest.drag_drop" }}</p>
+        <input type="file" id="file-input" style="display: none;" multiple>
+        <button id="select-button" style="background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            {{ call .T "guest.select_files" }}
+        </button>
+    </div>
+
+    <!-- Active Uploads (Progress) -->
+    <div id="progress-list"></div>
+
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border-color);">
+    {{ end }}
+
+    <!-- Existing Files Section -->
+    {{ template "_file_list_area.html" . }}
+
+    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.1/dist/tus.min.js"></script>
+    <script>
+        function copyPublicShareUrl() {
+            const text = document.getElementById('public-share-url').innerText;
+            navigator.clipboard.writeText(text);
+        }
+
+        const container = document.getElementById('upload-container');
+        const input = document.getElementById('file-input');
+        const selectBtn = document.getElementById('select-button');
+        const progressList = document.getElementById('progress-list');
+        const shareToken = '{{ .ShareToken }}';
+        const uploadSessionID = '{{ .UploadSessionID }}';
+        const maxUploadSuccessIDs = {{ .MaxUploadSuccessIDs }};
+
+        // Registry for parallel uploads
+        const activeUploads = {};
+        const uploadSuccessIDs = new Set(
+            (document.getElementById('file-list-area')?.dataset.uploadSuccessIds || '')
+                .split(',')
+                .map((id) => id.trim())
+                .filter(Boolean)
+        );
+        let fileListRefreshTimer = null;
+        let fileListRefreshSeq = 0;
+
+        function scheduleFileListRefresh() {
+            clearTimeout(fileListRefreshTimer);
+            fileListRefreshTimer = setTimeout(async () => {
+                const seq = ++fileListRefreshSeq;
+                const ids = Array.from(uploadSuccessIDs).slice(-maxUploadSuccessIDs).join(',');
+                const url = `/s/${shareToken}/files-fragment?success_ids=${encodeURIComponent(ids)}`;
+                try {
+                    const response = await fetch(url, { headers: { 'HX-Request': 'true' } });
+                    if (!response.ok || seq !== fileListRefreshSeq) {
+                        return;
+                    }
+                    const html = await response.text();
+                    if (seq !== fileListRefreshSeq) {
+                        return;
+                    }
+                    const area = document.getElementById('file-list-area');
+                    if (area) {
+                        area.outerHTML = html;
+                        const updatedArea = document.getElementById('file-list-area');
+                        if (updatedArea) {
+                            htmx.process(updatedArea);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to refresh file list after upload completion:', error);
+                }
+            }, 50);
+        }
+
+        document.body.addEventListener('upload-complete', (event) => {
+            const fileID = event.detail?.file_id;
+            if (fileID) {
+                uploadSuccessIDs.add(fileID);
+            }
+            scheduleFileListRefresh();
+        });
+
+        if (container) {
+            container.onclick = () => input.click();
+            selectBtn.onclick = (e) => {
+                e.stopPropagation();
+                input.click();
+            };
+
+            input.onchange = (e) => {
+                const files = e.target.files;
+                for (let i = 0; i < files.length; i++) {
+                    startUpload(files[i]);
+                }
+                // Reset input to allow re-uploading the same file
+                e.target.value = '';
+            };
+
+            // Drag & Drop handling
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                container.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                container.addEventListener(eventName, () => {
+                    container.classList.add('is-dragging');
+                }, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                container.addEventListener(eventName, () => {
+                    container.classList.remove('is-dragging');
+                }, false);
+            });
+            container.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                for (let i = 0; i < files.length; i++) {
+                    startUpload(files[i]);
+                }
+            }, false);
+        }
+
+        function startUpload(file) {
+            // Use a combination of name, size, and random number for a more unique ID
+            const uploadId = `tus-${file.name}-${file.size}-${Math.random()}`;
+            activeUploads[uploadId] = true; // Register as active immediately
+
+            const row = document.createElement('div');
+            row.id = `upload-row-${uploadId}`;
+            row.className = 'upload-progress-row';
+            
+            const nameLabel = document.createElement('div');
+            nameLabel.innerText = file.name;
+            nameLabel.style.fontWeight = 'bold';
+            nameLabel.style.marginBottom = '0.5rem';
+
+            const progressWrapper = document.createElement('div');
+            progressWrapper.className = 'upload-progress-track';
+
+            const progressBar = document.createElement('div');
+            progressBar.style.width = '0%';
+            progressBar.style.height = '100%';
+            progressBar.style.background = 'var(--primary-color)';
+            progressBar.style.transition = 'width 0.2s, background-color 0.5s';
+
+            const statusLabel = document.createElement('div');
+            statusLabel.id = `status-label-${uploadId}`;
+            statusLabel.className = 'upload-status';
+            statusLabel.innerText = '{{ call .T "guest.uploading" }}';
+
+            progressWrapper.appendChild(progressBar);
+            row.appendChild(nameLabel);
+            row.appendChild(progressWrapper);
+            row.appendChild(statusLabel);
+            progressList.appendChild(row);
+
+            // TUS client setup
+            const upload = new tus.Upload(file, {
+                endpoint: "/api/upload/",
+                retryDelays: [0, 3000, 5000, 10000, 20000],
+                metadata: {
+                    filename: file.name,
+                    filetype: file.type,
+                    share_token: shareToken,
+                    upload_session_id: uploadSessionID
+                },
+                onError: function(error) {
+                    delete activeUploads[uploadId];
+                    statusLabel.innerText = '{{ call .T "guest.error" "message" "" }}' + error;
+                    statusLabel.classList.add('is-error');
+                    progressBar.style.background = 'var(--danger-text)';
+                },
+                onProgress: function(bytesUploaded, bytesTotal) {
+                    var percentage = (bytesUploaded / bytesTotal * 100).toFixed(2);
+                    progressBar.style.width = percentage + '%';
+                },
+                onSuccess: function() {
+                    const tusUploadId = upload.url.split('/').pop();
+                    const pollUrl = `/api/upload/status/${tusUploadId}?token=${encodeURIComponent(shareToken)}`;
+                    
+                    // Show processing message and activate scanner effect
+                    statusLabel.innerText = '{{ call .T "guest.processing" }}';
+                    progressBar.classList.add('progress-scanner');
+                    
+                    row.setAttribute('hx-get', pollUrl);
+                    row.setAttribute('hx-trigger', 'load, every 2s');
+                    row.setAttribute('hx-swap', 'outerHTML');
+                    
+                    // Process with HTMX
+                    htmx.process(row);
+                    
+                    delete activeUploads[uploadId];
+                }
+            });
+
+            upload.start();
+        }
+
+        async function deleteFile(id) {
+            if (!confirm('{{ call .T "admin.confirm_delete" }}')) return;
+            
+            try {
+                const resp = await fetch(`/s/${shareToken}/files/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-Token': '{{ .CSRFToken }}' }
+                });
+                
+                if (resp.ok) {
+                    document.getElementById(`file-row-${id}`)?.remove();
+                } else {
+                    const msg = await resp.text();
+                    alert('{{ call .T "guest.delete_failed" }}' + msg);
+                }
+            } catch (err) {
+                alert('{{ call .T "guest.delete_error" }}' + err);
+            }
+        }
+    </script>
+    {{ end }}
+{{ end }}

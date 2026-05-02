@@ -1,0 +1,128 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/kakra/ferry/ent/share"
+	internalShare "github.com/kakra/ferry/internal/share"
+	"github.com/kakra/ferry/internal/upload"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestHandleGetUploadStatus_SecurityAndHTMX(t *testing.T) {
+	srv, cfg := setupBaseServer(t)
+	token := "secret-test-token"
+	tokenHash := internalShare.HashToken(token, cfg.Security.TokenSecret)
+
+	// 1. Create a share in DB
+	sh, err := srv.db.Share.Create().
+		SetTitle("Security Test").
+		SetTokenHash(tokenHash).
+		SetType(share.TypeUpload).
+		SetExpiresAt(time.Now().Add(1 * time.Hour)).
+		Save(context.Background())
+	require.NoError(t, err)
+
+	// Create a blob and file for "complete" state
+	fileID := uuid.New()
+	b, _ := srv.db.Blob.Create().SetID("hash123").SetSize(100).SetStoragePath("p").Save(context.Background())
+	_, _ = srv.db.File.Create().
+		SetID(fileID).
+		SetOriginalName("test.txt").
+		SetBlob(b).
+		SetShare(sh).
+		Save(context.Background())
+
+	uploadID := "test-upload-id"
+	m := srv.upload
+
+	t.Run("Reject Incorrect Token", func(t *testing.T) {
+		m.SetStatusForTest(uploadID, upload.StatusComplete, &fileID, tokenHash)
+
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=wrong-token", uploadID), nil)
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("Accept Correct Token - JSON", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=%s", uploadID, token), nil)
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var resp map[string]string
+		json.Unmarshal(rec.Body.Bytes(), &resp)
+		assert.Equal(t, "complete", resp["status"])
+	})
+
+	t.Run("Accept Admin ID Token", func(t *testing.T) {
+		adminToken := fmt.Sprintf("id:%s", sh.ID.String())
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=%s", uploadID, adminToken), nil)
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var resp map[string]string
+		json.Unmarshal(rec.Body.Bytes(), &resp)
+		assert.Equal(t, "complete", resp["status"])
+	})
+
+	t.Run("HTMX Request - Event Trigger", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=%s", uploadID, token), nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var trigger map[string]map[string]string
+		require.NoError(t, json.Unmarshal([]byte(rec.Header().Get("HX-Trigger")), &trigger))
+		assert.Equal(t, fileID.String(), trigger["upload-complete"]["file_id"])
+		assert.Equal(t, uploadID, trigger["upload-complete"]["upload_id"])
+
+		body := rec.Body.String()
+		assert.Equal(t, "<div></div>", body)
+		assert.NotContains(t, body, "files-fragment")
+		assert.NotContains(t, body, "<tr")
+	})
+
+	t.Run("HTMX Request - Processing State", func(t *testing.T) {
+		procID := "proc-id"
+		m.SetStatusForTest(procID, upload.StatusProcessing, nil, tokenHash)
+
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=%s", procID, token), nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNoContent, rec.Code)
+		// Keep the existing HTMX polling row intact while the client-side scanner is shown.
+		assert.Empty(t, rec.Body.String())
+	})
+
+	t.Run("HTMX Request - Error State", func(t *testing.T) {
+		errID := "error-id"
+		m.SetStatusForTest(errID, upload.StatusError, nil, tokenHash)
+
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/upload/status/%s?token=%s", errID, token), nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		body := rec.Body.String()
+		assert.Contains(t, body, `class="upload-status is-error"`)
+		assert.Contains(t, body, "Processing failed")
+		assert.NotContains(t, body, `style=`)
+		assert.NotContains(t, body, "color: red")
+	})
+}

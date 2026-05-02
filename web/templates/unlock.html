@@ -1,0 +1,31 @@
+{{ define "content" }}
+    <div style="max-width: 450px; margin: 4rem auto;">
+        <div style="text-align: center; margin-bottom: 2.5rem;">
+            <h1 style="margin-bottom: 0.5rem;">{{ .Share.Title }}</h1>
+            <h2 style="font-size: 1.1rem; color: var(--text-muted); font-weight: normal;">{{ call .T "unlock.title" }}</h2>
+        </div>
+        
+        <div style="background: var(--card-bg); padding: 2rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px var(--card-shadow);">
+            <p style="margin-bottom: 2rem; color: var(--text-muted); text-align: center;">{{ call .T "unlock.subtitle" }}</p>
+
+            {{ if .Error }}
+                <div style="color: var(--danger-text); margin-bottom: 1.5rem; padding: 0.75rem; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 6px; font-weight: bold; text-align: center;">
+                    {{ .Error }}
+                </div>
+            {{ end }}
+
+            <form method="POST" style="display: flex; flex-direction: column; gap: 1.5rem;" autocomplete="off">
+                <input type="hidden" name="csrf" value="{{ .CSRFToken }}">
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="password">{{ call .T "login.password" }}</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required autofocus autocomplete="new-password">
+                </div>
+                
+                <button type="submit" class="btn" style="width: 100%;">
+                    {{ call .T "unlock.button" }}
+                </button>
+            </form>
+        </div>
+    </div>
+{{ end }}

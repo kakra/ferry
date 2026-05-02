@@ -1,0 +1,97 @@
+dev_mode: false
+
+server:
+  # The address the server should listen on inside the container.
+  listen: 0.0.0.0:8080
+  # The external URL used for generating links. REQUIRED for reverse proxies.
+  public_url: http://localhost:8080
+  trusted_proxies:
+    - 127.0.0.1
+    # Add your Reverse Proxy IP here if needed
+
+security:
+  # Change these secrets to long, random strings for production!
+  session_secret: "generate-a-very-long-random-string-here"
+  token_secret: "generate-another-long-random-string-here"
+  # Set to TRUE if running behind an HTTPS proxy (Securepoint, Caddy, Nginx).
+  # This enables 'Secure' cookies which only work over HTTPS.
+  behind_reverse_proxy: true
+
+storage:
+  # Path where files are stored (relative to WORKDIR /app)
+  path: data/storage
+
+cleanup:
+  # How often the Mark-and-Sweep worker runs
+  interval: 15m
+  # Delete unfinished uploads after 24h
+  delete_incomplete_uploads_after: 24h
+
+# Reserved for future enforcement. Monitor disk space at the filesystem level for now.
+limits:
+  max_files_per_share: 50
+  max_share_size: 20GiB
+  max_file_size: 20GiB
+
+database:
+  # Path to SQLite database file
+  path: data/db/ferry.db
+
+auth:
+  # Internal API secret used by CLI commands such as `ferry cleanup`.
+  # Generate with `ferry init-config` and keep it private.
+  static_password: "CHANGEME_TO_SOMETHING_VERY_STRONG"
+  # One-time bootstrap and break-glass secret for setup and recovery flows.
+  bootstrap_password: "CHANGEME_TO_A_DIFFERENT_STRONG_SECRET"
+  
+  rate_limit:
+    enabled: true
+    # 0.2 means one request every 5 seconds (on average)
+    rate: 0.2
+    # Allows a quick burst of attempts before throttling kicks in
+    burst: 5
+
+upload:
+  max_size: 20GiB
+  expiration: 24h
+
+share:
+  default_expiration: 7d
+  max_expiration: 30d
+
+ldap:
+  # LDAP/AD configuration is reserved for a future release.
+  # These fields document the planned shape, but ldap.enabled=true is rejected
+  # until the authentication provider is implemented.
+  enabled: false
+  # Examples:
+  # url: ldaps://ad.example.internal:636
+  # url: ldap://ad.example.internal:389  # with starttls: true
+  url: ""
+  # Canonical realm label used for USER@REALM identities.
+  realm: ""
+  # Enable StartTLS for ldap:// endpoints. Do not combine with ldaps://.
+  starttls: false
+  # Unsafe lab override. Keep false in production.
+  insecure_skip_verify: false
+  # Optional bind account for directory searches.
+  bind_dn: ""
+  bind_password: ""
+  # Required when LDAP is enabled.
+  base_dn: ""
+  # Optional search filter template. Keep empty for implementation defaults.
+  user_filter: ""
+  attributes:
+    # AD-oriented defaults. Override for other LDAP implementations.
+    login: "sAMAccountName"
+    display_name: "displayName"
+    email: "mail"
+    external_id: "objectGUID"
+  tls:
+    # Optional CA bundle path when the issuing CA is not in the system trust store.
+    ca_file: ""
+
+ui:
+  logo_url: ""
+  primary_color: "#3b82f6"
+  custom_css_path: ""

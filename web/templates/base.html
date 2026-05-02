@@ -1,0 +1,448 @@
+{{ define "base" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ block "title" . }}{{ call .T "app_name" }}{{ end }}</title>
+    {{ if .CSRFToken }}
+    <meta name="csrf-token" content="{{ .CSRFToken }}">
+    {{ end }}
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        :root {
+            --primary-color: {{ .UI.PrimaryColor }};
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --text-muted: #666;
+            --container-bg: white;
+            --card-bg: #fff;
+            --card-shadow: rgba(0,0,0,0.05);
+            --border-color: #eee;
+            --control-bg: white;
+            --control-border: #ccc;
+            --header-text: white;
+            --footer-text: #888;
+            --table-header-bg: #f8f9fa;
+            --table-row-muted-bg: #fafafa;
+            --surface-muted: #f9f9f9;
+            --badge-bg: #eee;
+            --danger-bg: #fff5f5;
+            --danger-border: #fecaca;
+            --danger-text: #b91c1c;
+            --danger-muted-text: #7f1d1d;
+            --warning-bg: #fff8e1;
+            --warning-border: #ffe082;
+            --warning-text: #7c4d00;
+            --info-bg: #e3f2fd;
+            --info-border: #bbdefb;
+            --info-text: #0d47a1;
+            --success-bg: #e8f5e9;
+            --success-border: #c8e6c9;
+            --success-text: #2e7d32;
+            --download-bg: #e3f2fd;
+            --download-border: #bbdefb;
+            --download-text: #1565c0;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f1115;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --container-bg: #1e293b;
+            --card-bg: #1e293b;
+            --card-shadow: rgba(0,0,0,0.2);
+            --border-color: #334155;
+            --control-bg: #0f172a;
+            --control-border: #475569;
+            --header-text: #f1f5f9;
+            --footer-text: #64748b;
+            --table-header-bg: #1e293b;
+            --table-row-muted-bg: #111827;
+            --surface-muted: #111827;
+            --badge-bg: #334155;
+            --danger-bg: rgba(185, 28, 28, 0.16);
+            --danger-border: rgba(248, 113, 113, 0.35);
+            --danger-text: #fca5a5;
+            --danger-muted-text: #fecaca;
+            --warning-bg: rgba(180, 83, 9, 0.16);
+            --warning-border: rgba(251, 191, 36, 0.35);
+            --warning-text: #fde68a;
+            --info-bg: rgba(37, 99, 235, 0.16);
+            --info-border: rgba(96, 165, 250, 0.35);
+            --info-text: #bfdbfe;
+            --success-bg: rgba(46, 125, 50, 0.18);
+            --success-border: rgba(74, 222, 128, 0.35);
+            --success-text: #86efac;
+            --download-bg: rgba(21, 101, 192, 0.18);
+            --download-border: rgba(96, 165, 250, 0.35);
+            --download-text: #93c5fd;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .header {
+            background-color: var(--primary-color);
+            color: var(--header-text);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            color: var(--header-text);
+        }
+        .header img {
+            max-height: 40px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 6rem auto 2rem auto; /* Increased top margin for fixed header */
+            padding: 2rem;
+            background: var(--container-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px var(--card-shadow);
+        }
+        .footer {
+            text-align: center;
+            margin-top: 4rem;
+            color: var(--footer-text);
+            font-size: 0.9rem;
+        }
+
+        /* Scroll to Top Button */
+        #scroll-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 3rem;
+            height: 3rem;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.2s;
+            pointer-events: none;
+            z-index: 900;
+            border: none;
+            font-size: 1.5rem;
+        }
+        #scroll-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #scroll-top:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid var(--control-border);
+            background-color: var(--control-bg);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        /* HTMX Indicator */
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+            pointer-events: none;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+
+        /* Responsive Utilities */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: transparent;
+            color: inherit;
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: opacity 0.2s, transform 0.1s;
+            text-decoration: none;
+            text-align: center;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn:active {
+            transform: translateY(1px);
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+        }
+        .btn-outline-primary {
+            background: rgba(var(--primary-rgb, 59, 130, 246), 0.1);
+            color: var(--primary-color);
+            border: 1px solid rgba(var(--primary-rgb, 59, 130, 246), 0.2);
+        }
+        [data-theme="dark"] .btn-outline-primary {
+            background: rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+            border-color: rgba(var(--primary-rgb, 59, 130, 246), 0.4);
+        }
+        .btn-outline-warning {
+            background: rgba(239, 108, 0, 0.1);
+            color: #ef6c00;
+            border: 1px solid rgba(239, 108, 0, 0.2);
+        }
+        .btn-outline-danger {
+            background: rgba(211, 47, 47, 0.1);
+            color: #d32f2f;
+            border: 1px solid rgba(211, 47, 47, 0.2);
+        }
+
+        /* Table Theme Adjustments */
+        th {
+            background-color: var(--table-header-bg);
+            color: var(--text-color);
+            text-align: left;
+        }
+        td {
+            color: var(--text-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        option {
+            background-color: var(--control-bg);
+            color: var(--text-color);
+        }
+
+        /* Log Viewer Terminal-like Styles */
+        .terminal-log-container {
+            margin-top: 3rem;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .terminal-log-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+        }
+        .terminal-log-entry {
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-start;
+            line-height: 1.4;
+            border-left: 3px solid #333;
+            padding-left: 0.8rem;
+        }
+        .terminal-log-timestamp {
+            color: #666;
+            font-size: 0.8rem;
+            font-family: monospace;
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding-top: 0.1rem;
+        }
+        .terminal-log-message {
+            flex-grow: 1;
+            min-width: 0;
+        }
+        .terminal-log-repeat {
+            color: #ccc;
+            font-size: 0.75rem;
+            margin-left: 0.4rem;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                position: relative; /* Unfix on small screens to save vertical space */
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            .header nav {
+                width: 100%;
+                justify-content: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            .container {
+                margin: 1rem;
+                padding: 1rem;
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script>
+        // Theme management
+        (function() {
+            const theme = document.cookie.match(/ferry_theme=([^;]+)/)?.[1] || 'auto';
+            const applyTheme = (t) => {
+                let actual = t;
+                if (t === 'auto') {
+                    actual = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', actual);
+            };
+            applyTheme(theme);
+            window.ferryTheme = {
+                set: (t) => {
+                    document.cookie = `ferry_theme=${t}; path=/; max-age=31536000; SameSite=Lax`;
+                    applyTheme(t);
+                },
+                get: () => theme
+            };
+        })();
+
+        // Convert hex primary color to RGB for box-shadow
+        document.addEventListener('DOMContentLoaded', () => {
+            const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+            if (primary.startsWith('#')) {
+                const r = parseInt(primary.slice(1, 3), 16);
+                const g = parseInt(primary.slice(3, 5), 16);
+                const b = parseInt(primary.slice(5, 7), 16);
+                document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
+            }
+
+            // Scroll to top logic
+            const scrollBtn = document.getElementById('scroll-top');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    scrollBtn.classList.add('visible');
+                } else {
+                    scrollBtn.classList.remove('visible');
+                }
+            });
+            scrollBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    </script>
+    {{ if .UI.CustomCSS }}
+    <link rel="stylesheet" href="{{ .UI.CustomCSS }}">
+    {{ end }}
+</head>
+<body hx-headers='js:{"X-CSRF-Token": document.querySelector("meta[name=\"csrf-token\"]") ? document.querySelector("meta[name=\"csrf-token\"]").content : "", "HX-Request": "true"}'>
+    <header class="header">
+        <a href="/" class="logo">
+            {{ if .UI.LogoURL }}
+            <img src="{{ .UI.LogoURL }}" alt="Logo">
+            {{ end }}
+            {{ call .T "app_name" }}
+        </a>
+        <nav style="display: flex; gap: 1.5rem; align-items: center; margin-left: auto;">
+            <select onchange="ferryTheme.set(this.value)" class="btn-sm" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.4rem; font-size: 0.8rem;">
+                <option value="auto" id="theme-opt-auto">{{ call .T "common.theme.auto" }}</option>
+                <option value="light" id="theme-opt-light">{{ call .T "common.theme.light" }}</option>
+                <option value="dark" id="theme-opt-dark">{{ call .T "common.theme.dark" }}</option>
+            </select>
+            <script>
+                document.getElementById('theme-opt-' + ferryTheme.get()).selected = true;
+            </script>
+            {{ if .IsAuthenticated }}
+            <a href="/" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">Dashboard</a>
+            <a href="/#users" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">{{ call .T "admin.users.title" }}</a>
+            <a href="/status" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">{{ call .T "admin.status_title" }}</a>
+            <a href="/logout" class="btn btn-sm btn-outline-danger" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">{{ call .T "login.logout" }}</a>
+            {{ end }}
+        </nav>
+    </header>
+
+    <main class="container">
+        {{ template "content" . }}
+    </main>
+
+    <footer class="footer">
+        {{ call .T "common.powered_by" }}
+    </footer>
+
+    <button id="scroll-top" title="Go to top">↑</button>
+</body>
+</html>
+{{ end }}
