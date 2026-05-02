@@ -45,6 +45,18 @@ This document summarizes implemented security properties, current hardening meas
 ## 🧹 Automated Maintenance
 - **Mark-and-Sweep GC:** A background worker automatically deletes expired shares, incomplete TUS uploads, and orphaned blobs, adhering to the principle of **Data Minimization**.
 
+## 🎯 Threat Model
+- **Designed For:** Trusted self-hosted deployments, temporary file exchange, and small operational teams that control their own infrastructure.
+- **Not Designed For:** Hostile multi-tenant hosting, zero-trust public exposure, or long-term confidential storage.
+- **Assumed Trust Boundary:** The operating system, local filesystem, and deployment operator are part of the trust boundary.
+
+## ⚠️ Known Limitations
+- **No application-level encryption at rest:** ferry relies on the underlying host or storage layer for disk encryption.
+- **No central session revocation:** Sessions are cookie-based, so active sessions cannot be centrally enumerated or invalidated without replacing the session store.
+- **No distributed deployment model:** ferry is intentionally single-node and SQLite-backed.
+- **No complete quota enforcement layer yet:** Size and retention limits are configured, but they are not a substitute for external storage controls.
+- **No remote break-glass administration:** Recovery mode is intentionally local-only and must be started explicitly.
+
 ## 🚀 Development Process
 Ferry is built using a **Multi-AI Orchestration** approach:
 - **Google Gemini:** High-level logic, UI polish, and architectural guidance.
