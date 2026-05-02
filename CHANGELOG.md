@@ -4,6 +4,13 @@ All notable changes to ferry will be documented in this file starting with the f
 
 The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and ferry follows semantic versioning after `v1.0.0`.
 
+## [1.0.1] - 2026-05-02
+
+### Fixed
+- Fixed several Open Redirect vulnerabilities in the login handler (CVE-style security fixes).
+- Fixed image path issues in the documentation deployment for GitHub Pages.
+- Updated documentation deployment trigger to correctly target the `main` branch.
+
 ## [1.0.0] - 2026-05-02
 
 ### Added
