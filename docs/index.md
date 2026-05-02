@@ -2,6 +2,8 @@
 
 ferry is a self-hosted, single-binary file-sharing solution for secure temporary file exchange.
 
+![ferry Administration Teaser](assets/screenshot_readme_teaser_en.png)
+
 ## Guides
 
 - [Operations Guide](OPERATIONS.md) - deployment, backup, reverse proxies, and recovery.
@@ -10,6 +12,16 @@ ferry is a self-hosted, single-binary file-sharing solution for secure temporary
 - [Release Checklist](RELEASE_CHECKLIST.md) - quality gates before publishing a release.
 - [Roadmap](ROADMAP.md) - supported v1 scope and planned work.
 - [Changelog](CHANGELOG.md) - release notes and compatibility-relevant changes.
+
+## UI Gallery
+
+| Admin Dashboard | System Status & Logs |
+|:---:|:---:|
+| ![Admin Dashboard](assets/screenshot_dashboard_final_en.png) | ![System Status](assets/screenshot_status_en.png) |
+
+| Guest View (Download/Upload) |
+|:---:|
+| ![Guest View](assets/screenshot_guest_en.png) |
 
 ## Security Reports
 
