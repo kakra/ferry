@@ -104,17 +104,25 @@ func (s *Server) getUploadSessionID(c echo.Context, token string) string {
 	return sid
 }
 
-func uploadSuccessIDsFromQuery(c echo.Context) ([]string, map[string]bool) {
+func uploadSuccessIDsFromQuery(c echo.Context, sh *ent.Share) ([]string, map[string]bool) {
 	raw := c.QueryParam("success_ids")
 	if raw == "" {
 		return nil, map[string]bool{}
+	}
+
+	// Create a map of valid file IDs for this share for validation
+	validIDs := make(map[string]bool)
+	if sh != nil {
+		for _, f := range sh.Edges.Files {
+			validIDs[f.ID.String()] = true
+		}
 	}
 
 	ids := make([]string, 0, maxUploadSuccessIDs)
 	seen := make(map[string]bool)
 	for _, part := range strings.Split(raw, ",") {
 		id := strings.TrimSpace(part)
-		if id == "" || seen[id] {
+		if id == "" || seen[id] || !validIDs[id] {
 			continue
 		}
 		if _, err := uuid.Parse(id); err != nil {
@@ -188,7 +196,7 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 	}
 
 	uploadSID := s.getUploadSessionID(c, token)
-	uploadSuccessIDList, uploadSuccessIDs := uploadSuccessIDsFromQuery(c)
+	uploadSuccessIDList, uploadSuccessIDs := uploadSuccessIDsFromQuery(c, sh)
 	isAdmin := s.isAdmin(c)
 
 	data := map[string]interface{}{

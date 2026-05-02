@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -418,6 +419,14 @@ func (c *Config) Validate() error {
 	}
 
 	if !c.LDAP.Enabled {
+		// UI Validation
+		if c.UI.PrimaryColor != "" {
+			hexRegex := `^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$`
+			matched, _ := regexp.MatchString(hexRegex, c.UI.PrimaryColor)
+			if !matched {
+				return fmt.Errorf("ui.primary_color must be a valid hex color code (e.g. #3b82f6)")
+			}
+		}
 		return nil
 	}
 

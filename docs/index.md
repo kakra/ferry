@@ -8,6 +8,7 @@ ferry is a self-hosted, single-binary file-sharing solution for secure temporary
 
 - [Operations Guide](OPERATIONS.md) - deployment, backup, reverse proxies, and recovery.
 - [Architecture](ARCHITECTURE.md) - data model, storage, authentication, and security design.
+- [Security Model](SECURITY_MODEL.md) - technical deep-dive into hardening and defense measures.
 - [Release Policy](RELEASE.md) - versioning, compatibility, and Docker Hub release preparation.
 - [Release Checklist](RELEASE_CHECKLIST.md) - quality gates before publishing a release.
 - [Roadmap](ROADMAP.md) - supported v1 scope and planned work.
