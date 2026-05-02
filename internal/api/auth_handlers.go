@@ -143,8 +143,15 @@ func (s *Server) handleLoginPost(c echo.Context) error {
 	username := strings.TrimSpace(c.FormValue("username"))
 	password := c.FormValue("password")
 	next := c.QueryParam("next")
-	if !strings.HasPrefix(next, "/") {
-		next = "/" + next
+	if next == "" {
+		next = "/"
+	}
+	next = strings.ReplaceAll(next, "\\", "/")
+	parsedNext, err := url.Parse(next)
+	if err != nil || parsedNext.Scheme != "" || parsedNext.Host != "" || !strings.HasPrefix(parsedNext.Path, "/") || strings.HasPrefix(parsedNext.Path, "//") {
+		next = "/"
+	} else {
+		next = parsedNext.String()
 	}
 
 	if s.breakGlass {
