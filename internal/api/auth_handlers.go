@@ -142,9 +142,10 @@ func (s *Server) renderLoginError(c echo.Context, username string, err string) e
 func (s *Server) handleLoginPost(c echo.Context) error {
 	username := strings.TrimSpace(c.FormValue("username"))
 	password := c.FormValue("password")
-	next := c.QueryParam("next")
-	if !strings.HasPrefix(next, "/") {
-		next = "/" + next
+	rawNext := c.QueryParam("next")
+	next := "/"
+	if strings.HasPrefix(rawNext, "/") && (len(rawNext) == 1 || (rawNext[1] != '/' && rawNext[1] != '\\')) {
+		next = rawNext
 	}
 
 	if s.breakGlass {
