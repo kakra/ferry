@@ -4,7 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ block "title" . }}{{ call .T "app_name" }}{{ end }}</title>
+    <title>{{ block "title" . }}{{ if .UI.AppName }}{{ .UI.AppName }}{{ else }}{{ call .T "app_name" }}{{ end }}{{ end }}</title>
+    {{ if .UI.FaviconURL }}
+    <link rel="icon" href="{{ .UI.FaviconURL }}">
+    {{ end }}
     {{ if .CSRFToken }}
     <meta name="csrf-token" content="{{ .CSRFToken }}">
     {{ end }}
@@ -414,7 +417,7 @@
             {{ if .UI.LogoURL }}
             <img src="{{ .UI.LogoURL }}" alt="Logo">
             {{ end }}
-            {{ call .T "app_name" }}
+            {{ if .UI.AppName }}{{ .UI.AppName }}{{ else }}{{ call .T "app_name" }}{{ end }}
         </a>
         <nav style="display: flex; gap: 1.5rem; align-items: center; margin-left: auto;">
             <select onchange="ferryTheme.set(this.value)" class="btn-sm" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.4rem; font-size: 0.8rem;">
@@ -439,7 +442,7 @@
     </main>
 
     <footer class="footer">
-        {{ call .T "common.powered_by" }}
+        {{ if .UI.FooterText }}{{ .UI.FooterText }}{{ else }}{{ call .T "common.powered_by" }}{{ end }}
     </footer>
 
     <button id="scroll-top" title="Go to top">↑</button>

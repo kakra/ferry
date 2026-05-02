@@ -92,6 +92,15 @@ ldap:
     ca_file: ""
 
 ui:
+  # Optional: Customize the application name shown in title and header.
+  app_name: ""
+  # Optional: URL to a logo image.
   logo_url: ""
+  # Optional: URL to a favicon icon.
+  favicon_url: ""
+  # The primary brand color (CSS hex format).
   primary_color: "#3b82f6"
+  # Optional: Path to a custom CSS file to further customize the look.
   custom_css_path: ""
+  # Optional: Custom text for the footer (e.g., Company Info or Legal links).
+  footer_text: ""

@@ -125,9 +125,12 @@ type LDAPTLSConfig struct {
 
 // UIConfig contains optional branding customizations for rendered pages.
 type UIConfig struct {
+	AppName      string `yaml:"app_name"`
 	LogoURL      string `yaml:"logo_url"`
+	FaviconURL   string `yaml:"favicon_url"`
 	PrimaryColor string `yaml:"primary_color"`
 	CustomCSS    string `yaml:"custom_css_path"`
+	FooterText   string `yaml:"footer_text"`
 }
 
 const (
