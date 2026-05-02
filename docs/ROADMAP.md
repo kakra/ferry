@@ -20,3 +20,10 @@ This roadmap lists supported v1 capabilities and planned work after the first pu
 - Narrow mobile table refinements to reduce horizontal scrolling.
 - Enforced file, share, and storage quota limits.
 - Dedicated API-token model for maintenance automation.
+
+## Planned for v2.0 (Enterprise & GDPR)
+- **Encryption at Rest (EaR):** Convergent encryption for CAS blobs using a system master key.
+- **GDPR Compliance:** IP anonymization for logs and database field encryption.
+- **Migration Tools:** CLI tools for bulk-encrypting existing storage.
+- See [GDPR_ENCRYPTION_PLAN.md](GDPR_ENCRYPTION_PLAN.md) for details.
+
