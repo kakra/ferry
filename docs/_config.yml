@@ -1,0 +1,4 @@
+title: ferry Documentation
+description: Documentation for ferry, a self-hosted temporary file exchange tool.
+theme: jekyll-theme-primer
+markdown: kramdown
