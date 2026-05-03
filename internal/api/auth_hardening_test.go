@@ -150,3 +150,22 @@ func TestAuthRateLimiter_ProtectsSetup(t *testing.T) {
 
 	assert.Equal(t, http.StatusTooManyRequests, lastCode)
 }
+
+func TestSecurityHeaders_AllowBrandingAndHTMX(t *testing.T) {
+	srv, _ := setupBaseServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "SAMEORIGIN", rec.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "same-origin", rec.Header().Get("Referrer-Policy"))
+
+	csp := rec.Header().Get("Content-Security-Policy")
+	assert.Contains(t, csp, "default-src 'self'")
+	assert.Contains(t, csp, "script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'")
+	assert.Contains(t, csp, "style-src 'self' https: http: 'unsafe-inline'")
+	assert.Contains(t, csp, "img-src 'self' https: http: data:")
+}

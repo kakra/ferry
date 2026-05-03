@@ -94,6 +94,7 @@ func NewServerWithLogger(cfg *config.Config, dbClient *ent.Client, cleanupWorker
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(s.securityHeadersMiddleware())
 
 	// CSRF Protection
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
@@ -170,6 +171,19 @@ func (s *Server) authRateLimiter() echo.MiddlewareFunc {
 			return echo.NewHTTPError(http.StatusTooManyRequests, "Too many attempts. Please try again later.")
 		},
 	})
+}
+
+func (s *Server) securityHeadersMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			h := c.Response().Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("X-Frame-Options", "SAMEORIGIN")
+			h.Set("Referrer-Policy", "same-origin")
+			h.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; frame-ancestors 'self'; script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'; style-src 'self' https: http: 'unsafe-inline'; img-src 'self' https: http: data:")
+			return next(c)
+		}
+	}
 }
 
 func (s *Server) routes() {
