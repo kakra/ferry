@@ -77,7 +77,7 @@ func (s *Server) handleIndex(c echo.Context) error {
 		"CanCreateShare":    !s.breakGlass && currentUser != nil,
 		"CanManageUsers":    s.canManageUsers(c),
 		"CanManageShares":   shareScopeAll,
-		"ExpirationOptions": shareExpirationOptions(),
+		"ExpirationOptions": shareExpirationOptions(c.Request().Context()),
 		"DefaultExpiration": defaultShareExpiration(s.config),
 		"CurrentFilter":     currentFilter,
 		"CurrentSort":       currentSort,
@@ -90,7 +90,7 @@ func (s *Server) handleCreateView(c echo.Context) error {
 		"UI":                s.config.UI,
 		"Title":             c.QueryParam("title"),
 		"Note":              c.QueryParam("note"),
-		"ExpirationOptions": shareExpirationOptions(),
+		"ExpirationOptions": shareExpirationOptions(c.Request().Context()),
 		"DefaultExpiration": defaultShareExpiration(s.config),
 	})
 }
@@ -100,20 +100,31 @@ type shareExpirationOption struct {
 	Label string
 }
 
-func shareExpirationOptions() []shareExpirationOption {
+func shareExpirationValues() []string {
+	return []string{"24h", "72h", "168h", "336h"}
+}
+
+func shareExpirationOptions(ctx context.Context) []shareExpirationOption {
+	loc := i18n.GetLocale(ctx)
+	t := func(key string) string {
+		if loc == nil {
+			return key
+		}
+		return string(loc.T(key))
+	}
 	return []shareExpirationOption{
-		{Value: "24h", Label: "24h"},
-		{Value: "72h", Label: "3d"},
-		{Value: "168h", Label: "7d"},
-		{Value: "336h", Label: "14d"},
+		{Value: "24h", Label: t("admin.expiration_options.hours_24")},
+		{Value: "72h", Label: t("admin.expiration_options.days_3")},
+		{Value: "168h", Label: t("admin.expiration_options.days_7")},
+		{Value: "336h", Label: t("admin.expiration_options.days_14")},
 	}
 }
 
 func defaultShareExpiration(cfg *config.Config) string {
 	if cfg != nil {
-		for _, opt := range shareExpirationOptions() {
-			if cfg.Share.DefaultExpiration == opt.Value {
-				return opt.Value
+		for _, value := range shareExpirationValues() {
+			if cfg.Share.DefaultExpiration == value {
+				return value
 			}
 		}
 	}
@@ -125,8 +136,8 @@ func parseShareExpiration(raw string, cfg *config.Config) (time.Duration, error)
 	if value == "" {
 		value = defaultShareExpiration(cfg)
 	}
-	for _, opt := range shareExpirationOptions() {
-		if value == opt.Value {
+	for _, opt := range shareExpirationValues() {
+		if value == opt {
 			return time.ParseDuration(value)
 		}
 	}

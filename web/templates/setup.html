@@ -16,13 +16,13 @@
         <div class="form-group">
             <label for="username">{{ call .T "setup.username" }}</label>
             <input type="text" id="username" name="username" class="form-control" value="{{ .Username }}" required autocomplete="off"
-                   placeholder="e.g. admin">
+                   placeholder="{{ call .T "setup.username_placeholder" }}">
         </div>
 
         <div class="form-group">
             <label for="display_name">{{ call .T "setup.display_name" }}</label>
             <input type="text" id="display_name" name="display_name" class="form-control" value="{{ .DisplayName }}" required autocomplete="off"
-                   placeholder="e.g. System Administrator">
+                   placeholder="{{ call .T "setup.display_name_placeholder" }}">
         </div>
 
         <div class="form-group">

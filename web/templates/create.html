@@ -11,13 +11,13 @@
             <div class="form-group">
                 <label for="share_title">{{ call .T "admin.form.share_title" }}</label>
                 <input type="text" id="share_title" name="title" class="form-control" required 
-                       value="{{ .Title }}" placeholder="e.g. Project X Assets">
+                       value="{{ .Title }}" placeholder="{{ call .T "admin.form.share_title_placeholder" }}">
             </div>
 
             <div class="form-group">
                 <label for="share_note">{{ call .T "admin.form.note" }} ({{ call .T "common.optional" }})</label>
                 <textarea id="share_note" name="note" class="form-control" 
-                          placeholder="Instructions for the guest..." rows="4">{{ .Note }}</textarea>
+                          placeholder="{{ call .T "admin.form.note_placeholder" }}" rows="4">{{ .Note }}</textarea>
             </div>
 
             <div class="form-group">

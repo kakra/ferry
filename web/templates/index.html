@@ -17,12 +17,12 @@
             
             <div class="form-group">
                 <label for="share_title">{{ call .T "admin.form.share_title" }}</label>
-                <input type="text" id="share_title" name="title" class="form-control" required placeholder="e.g. Project X Assets">
+                <input type="text" id="share_title" name="title" class="form-control" required placeholder="{{ call .T "admin.form.share_title_placeholder" }}">
             </div>
 
             <div class="form-group">
                 <label for="share_note">{{ call .T "admin.form.note" }} ({{ call .T "common.optional" }})</label>
-                <textarea id="share_note" name="note" class="form-control" placeholder="Instructions for the guest..." rows="2"></textarea>
+                <textarea id="share_note" name="note" class="form-control" placeholder="{{ call .T "admin.form.note_placeholder" }}" rows="2"></textarea>
             </div>
 
             <div class="form-group">
@@ -186,11 +186,11 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="user_username">{{ call .T "admin.users.username" }}</label>
-                        <input type="text" id="user_username" name="username" class="form-control" required placeholder="e.g. jdoe" autocomplete="off">
+                        <input type="text" id="user_username" name="username" class="form-control" required placeholder="{{ call .T "admin.users.username_placeholder" }}" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="user_display_name">{{ call .T "admin.users.display_name" }}</label>
-                        <input type="text" id="user_display_name" name="display_name" class="form-control" required placeholder="e.g. John Doe" autocomplete="off">
+                        <input type="text" id="user_display_name" name="display_name" class="form-control" required placeholder="{{ call .T "admin.users.display_name_placeholder" }}" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-group">
