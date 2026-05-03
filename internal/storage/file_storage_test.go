@@ -18,6 +18,18 @@ func TestFileStorage_Put(t *testing.T) {
 		t.Fatalf("failed to create storage: %v", err)
 	}
 
+	baseInfo, err := os.Stat(base)
+	if err != nil {
+		t.Fatalf("failed to stat base dir: %v", err)
+	}
+	assert.Equal(t, os.FileMode(0700), baseInfo.Mode().Perm())
+
+	tmpInfo, err := os.Stat(filepath.Join(base, "tmp"))
+	if err != nil {
+		t.Fatalf("failed to stat tmp dir: %v", err)
+	}
+	assert.Equal(t, os.FileMode(0700), tmpInfo.Mode().Perm())
+
 	content := []byte("hello ferry")
 	expectedHash := "cf82d2d961ff699eda330edfa1bc8ec368d42d901582a9534af98acfd1cde208" // SHA-256 for "hello ferry"
 
@@ -45,6 +57,11 @@ func TestFileStorage_Put(t *testing.T) {
 	if _, err := os.Stat(fullPath); err != nil {
 		t.Errorf("file not found at %s", fullPath)
 	}
+	fileInfo, err := os.Stat(fullPath)
+	if err != nil {
+		t.Fatalf("failed to stat blob file: %v", err)
+	}
+	assert.Equal(t, os.FileMode(0600), fileInfo.Mode().Perm())
 
 	// Test Exists
 	exists, _ := s.Exists(expectedHash)
@@ -88,6 +105,9 @@ func Test_moveFile(t *testing.T) {
 		// Verify dst exists and src is gone
 		data, _ := os.ReadFile(dst)
 		assert.Equal(t, content, data)
+		info, err := os.Stat(dst)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 		_, err = os.Stat(src)
 		assert.True(t, os.IsNotExist(err))
 		os.Remove(dst)
@@ -99,7 +119,6 @@ func Test_moveFile(t *testing.T) {
 	})
 }
 
-
 func TestFileStorage_Deduplication(t *testing.T) {
 	base := t.TempDir()
 
@@ -109,12 +128,12 @@ func TestFileStorage_Deduplication(t *testing.T) {
 	}
 
 	content := []byte("duplicate")
-	
+
 	// First put
 	src1 := filepath.Join(s.GetTmpPath(), "src1")
 	os.WriteFile(src1, content, 0644)
 	info1, _ := s.PutFromPath(src1)
-	
+
 	// Second put
 	src2 := filepath.Join(s.GetTmpPath(), "src2")
 	os.WriteFile(src2, content, 0644)
@@ -123,7 +142,7 @@ func TestFileStorage_Deduplication(t *testing.T) {
 	if info1.Hash != info2.Hash {
 		t.Error("identical content resulted in different hashes")
 	}
-	
+
 	if info1.StoragePath != info2.StoragePath {
 		t.Error("identical content resulted in different storage paths")
 	}
@@ -147,4 +166,3 @@ func TestFileStorage_ListHashes_SkipsTmp(t *testing.T) {
 	assert.Len(t, hashes, 1)
 	assert.Equal(t, info.Hash, hashes[0])
 }
-

@@ -17,12 +17,18 @@ type FileStorage struct {
 
 // NewFileStorage creates the storage and temporary upload directories if needed.
 func NewFileStorage(basePath string) (*FileStorage, error) {
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	if err := os.MkdirAll(basePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage path: %w", err)
 	}
+	if err := os.Chmod(basePath, 0700); err != nil {
+		return nil, fmt.Errorf("failed to secure storage path: %w", err)
+	}
 	tmpPath := filepath.Join(basePath, "tmp")
-	if err := os.MkdirAll(tmpPath, 0755); err != nil {
+	if err := os.MkdirAll(tmpPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create tmp path: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0700); err != nil {
+		return nil, fmt.Errorf("failed to secure tmp path: %w", err)
 	}
 	return &FileStorage{
 		basePath: basePath,
@@ -55,9 +61,12 @@ func (s *FileStorage) PutFromPath(sourcePath string) (*BlobInfo, error) {
 	relPath := s.getRelativePath(hexHash)
 	fullPath := filepath.Join(s.basePath, relPath)
 
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0700); err != nil {
 		// Don't remove the source, as the destination is unavailable. Let caller handle it.
 		return nil, fmt.Errorf("failed to create blob directory: %w", err)
+	}
+	if err := os.Chmod(filepath.Dir(fullPath), 0700); err != nil {
+		return nil, fmt.Errorf("failed to secure blob directory: %w", err)
 	}
 
 	isNew := false
@@ -71,6 +80,10 @@ func (s *FileStorage) PutFromPath(sourcePath string) (*BlobInfo, error) {
 			return nil, fmt.Errorf("failed to move blob to final path: %w", err)
 		}
 		isNew = true
+	}
+
+	if err := os.Chmod(fullPath, 0600); err != nil {
+		return nil, fmt.Errorf("failed to secure blob file: %w", err)
 	}
 
 	return &BlobInfo{
@@ -110,10 +123,16 @@ func moveFile(src, dst string) error {
 			srcFile.Close()
 
 			// Remove the source file after a successful copy.
+			if err := os.Chmod(dst, 0600); err != nil {
+				return fmt.Errorf("moveFile: failed to secure copied file: %w", err)
+			}
 			return os.Remove(src)
 		}
 		// The error was not a cross-device link error.
 		return fmt.Errorf("moveFile: failed to rename file: %w", err)
+	}
+	if err := os.Chmod(dst, 0600); err != nil {
+		return fmt.Errorf("moveFile: failed to secure moved file: %w", err)
 	}
 	return nil
 }
