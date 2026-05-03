@@ -156,6 +156,26 @@ func TestHandleAdminCleanup_BearerAuth(t *testing.T) {
 	})
 }
 
+func TestMaintenanceBearerRequest_IsNarrow(t *testing.T) {
+	srv, _ := setupBaseServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/cleanup", nil)
+	req.Header.Set("Authorization", "Bearer api-secret")
+	rec := httptest.NewRecorder()
+	cleanupCtx := srv.echo.NewContext(req, rec)
+	cleanupCtx.SetPath("/api/admin/cleanup")
+
+	assert.True(t, srv.isMaintenanceBearerRequest(cleanupCtx))
+
+	otherReq := httptest.NewRequest(http.MethodPost, "/login", nil)
+	otherReq.Header.Set("Authorization", "Bearer api-secret")
+	otherRec := httptest.NewRecorder()
+	otherCtx := srv.echo.NewContext(otherReq, otherRec)
+	otherCtx.SetPath("/login")
+
+	assert.False(t, srv.isMaintenanceBearerRequest(otherCtx))
+}
+
 func TestHandleHealth_Public(t *testing.T) {
 	srv, _ := setupBaseServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)

@@ -108,9 +108,9 @@ func NewServerWithLogger(cfg *config.Config, dbClient *ent.Client, cleanupWorker
 			if c.Path() == "/health" {
 				return true
 			}
-			// Skip CSRF for CLI API triggers (identified by Bearer auth)
-			authHeader := c.Request().Header.Get("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
+			// Skip CSRF only for the dedicated maintenance API route when it is
+			// authenticated via the shared Bearer secret.
+			if s.isMaintenanceBearerRequest(c) {
 				return true
 			}
 			// Skip CSRF for TUS uploads
@@ -144,6 +144,14 @@ func NewServerWithLogger(cfg *config.Config, dbClient *ent.Client, cleanupWorker
 	s.routes()
 
 	return s
+}
+
+func (s *Server) isMaintenanceBearerRequest(c echo.Context) bool {
+	if c.Path() != "/api/admin/cleanup" {
+		return false
+	}
+	authHeader := c.Request().Header.Get("Authorization")
+	return strings.HasPrefix(authHeader, "Bearer ")
 }
 
 // NewBreakGlassServer constructs the restricted local recovery server.
