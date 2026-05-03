@@ -26,6 +26,15 @@ func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+func (s *Server) adminOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if !s.canManageUsers(c) {
+			return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
+		}
+		return next(c)
+	}
+}
+
 func (s *Server) apiAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if s.breakGlass {

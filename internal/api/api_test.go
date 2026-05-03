@@ -166,6 +166,36 @@ func TestHandleHealth_Public(t *testing.T) {
 	assert.JSONEq(t, `{"status":"ok"}`, rec.Body.String())
 }
 
+func TestNoAdminUser_HidesAdminLinksAndBlocksStatus(t *testing.T) {
+	srv, _ := setupBaseServer(t)
+	createLocalAdminUser(t, srv, "noadmin", "secret123", false, false)
+
+	ctx := context.Background()
+	u, err := srv.db.User.Query().Where(user.UsernameEQ("noadmin")).Only(ctx)
+	require.NoError(t, err)
+	_, err = u.Update().
+		SetCanManageUsers(false).
+		SetCanManageAllShares(false).
+		Save(ctx)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	attachUserSession(t, srv, req, u.ID)
+	rec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.NotContains(t, rec.Body.String(), `href="/status"`)
+	assert.NotContains(t, rec.Body.String(), `href="/#users"`)
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/status", nil)
+	attachUserSession(t, srv, statusReq, u.ID)
+	statusRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(statusRec, statusReq)
+
+	assert.Equal(t, http.StatusForbidden, statusRec.Code)
+}
+
 func TestAuthRateLimiter(t *testing.T) {
 	t.Run("login", func(t *testing.T) {
 		srv, _ := setupBaseServer(t)

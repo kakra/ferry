@@ -430,8 +430,10 @@
             </script>
             {{ if .IsAuthenticated }}
             <a href="/" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">Dashboard</a>
+            {{ if .CanManageUsers }}
             <a href="/#users" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">{{ call .T "admin.users.title" }}</a>
             <a href="/status" style="color: white; text-decoration: none; font-weight: bold; font-size: 0.95rem;">{{ call .T "admin.status_title" }}</a>
+            {{ end }}
             <a href="/logout" class="btn btn-sm btn-outline-danger" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">{{ call .T "login.logout" }}</a>
             {{ end }}
         </nav>
