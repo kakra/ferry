@@ -4,6 +4,25 @@ All notable changes to ferry will be documented in this file starting with the f
 
 The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and ferry follows semantic versioning after `v1.0.0`.
 
+## [1.0.4] - 2026-05-03
+
+### Added
+- **Global Security Headers:** Every response now includes `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and a strict `Content-Security-Policy`.
+- **Differentiated User Feedback:** The dashboard now displays whether you are logged in as an admin or a standard user, including your display name.
+- **Enhanced Security Documentation:** Updated [Security Model](docs/SECURITY_MODEL.md) to reflect the new hardening measures.
+
+### Fixed
+- **Multi-User Isolation:** Standard users now only see and manage their own shares on the dashboard.
+- **Directional Semantics:** Restored the intended upload logic: Guests upload to 'Receive' (Upload) shares, while Owners/Admins upload to 'Send' (Download) shares for management.
+- **TUS Authorization:** Every TUS upload request (`POST`, `PATCH`, `HEAD`) is validated against the current session to ensure the user has access to the associated share.
+- **Badge Persistence:** Improved the 'Upload Success' badge tracking to survive HTMX list refreshes correctly.
+- **UI Refinements:** Restored the 'Knight Rider' processing glint animation and fixed a broken navigation tag.
+- **Permissions Regression:** Authenticated admins can now correctly delete shares in break-glass mode again.
+
+### Security
+- **Restricted Permissions:** Storage and database directories are now created with `0700` permissions. Blobs and database files are restricted to `0600`.
+- **Setup Protection:** The `/setup` bootstrap flow is now protected by the authentication rate-limiter.
+
 ## [1.0.3] - 2026-05-02
 
 ### Added

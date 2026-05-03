@@ -26,4 +26,5 @@ This roadmap lists supported v1 capabilities and planned work after the first pu
 - **Encryption at Rest (EaR):** Convergent encryption for CAS blobs using a system master key.
 - **GDPR Compliance:** IP anonymization for logs and database field encryption.
 - **Migration Tools:** CLI tools for bulk-encrypting existing storage.
+- **Container Hardening:** Run the Docker image as a dedicated non-root user, with a documented ownership migration strategy for mounted config, database, and storage volumes.
 - See [GDPR_ENCRYPTION_PLAN.md](GDPR_ENCRYPTION_PLAN.md) for details.
