@@ -72,11 +72,11 @@
         <div style="margin: 1rem 0; background: rgba(var(--primary-rgb, 59, 130, 246), 0.1); border: 1px solid rgba(var(--primary-rgb, 59, 130, 246), 0.2); color: var(--primary-color); padding: 1rem; border-radius: 8px;">
             <div style="font-weight: bold; margin-bottom: 0.5rem;">{{ call .T "share_created.public_url" }}</div>
             <code id="public-share-url" style="display: block; padding: 0.75rem; background: var(--control-bg); border: 1px solid var(--border-color); word-break: break-all; margin-bottom: 0.75rem;">{{ .PublicShareURL }}</code>
-            <button onclick="copyPublicShareUrl()" class="btn btn-sm btn-outline-primary">
+            <button type="button" onclick="copyPublicShareUrl()" class="btn btn-sm btn-outline-primary">
                 {{ call .T "share_created.copy" }}
             </button>
         </div>
-        {{ else if .IsAdmin }}
+        {{ else if .CanManageShare }}
         <div style="margin: 1rem 0; background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); padding: 1rem; border-radius: 8px;">
             <strong>{{ call .T "admin.public_link_unavailable_title" }}</strong><br>
             {{ call .T "admin.public_link_unavailable_hint" }}
@@ -89,12 +89,12 @@
         {{ end }}
     </div>
 
-    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+    {{ if or (and (eq .Share.Type "upload") (not .CanManageShare)) (and (eq .Share.Type "download") .CanManageShare) }}
         <h2 style="font-size: 1.2rem; margin-top: 2rem;">{{ call .T "guest.upload_title" }}</h2>
     {{ end }}
     
     <!-- Upload Section: guests upload to upload-shares; admins upload only when preparing download-shares -->
-    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+    {{ if or (and (eq .Share.Type "upload") (not .CanManageShare)) (and (eq .Share.Type "download") .CanManageShare) }}
     <div id="upload-container" class="upload-drop-zone">
         <p>{{ call .T "guest.drag_drop" }}</p>
         <input type="file" id="file-input" style="display: none;" multiple>
@@ -112,12 +112,46 @@
     <!-- Existing Files Section -->
     {{ template "_file_list_area.html" . }}
 
-    {{ if or (and (eq .Share.Type "upload") (not .IsAdmin)) (and (eq .Share.Type "download") .IsAdmin) }}
+    {{ if or (and (eq .Share.Type "upload") (not .CanManageShare)) (and (eq .Share.Type "download") .CanManageShare) }}
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.1/dist/tus.min.js"></script>
     <script>
-        function copyPublicShareUrl() {
-            const text = document.getElementById('public-share-url').innerText;
-            navigator.clipboard.writeText(text);
+        async function copyTextToClipboard(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Clipboard API copy failed, falling back to execCommand:', err);
+            }
+
+            const fallback = document.createElement('textarea');
+            fallback.value = text;
+            fallback.setAttribute('readonly', 'readonly');
+            fallback.style.position = 'fixed';
+            fallback.style.opacity = '0';
+            document.body.appendChild(fallback);
+            fallback.select();
+            fallback.setSelectionRange(0, fallback.value.length);
+
+            let ok = false;
+            try {
+                ok = document.execCommand('copy');
+            } catch (err) {
+                console.warn('execCommand copy failed:', err);
+            }
+
+            document.body.removeChild(fallback);
+            return ok;
+        }
+
+        async function copyPublicShareUrl() {
+            const el = document.getElementById('public-share-url');
+            const text = el ? el.textContent.trim() : '';
+            if (!text) {
+                return;
+            }
+            await copyTextToClipboard(text);
         }
 
         const container = document.getElementById('upload-container');

@@ -9,7 +9,7 @@
                 <p><strong>{{ call .T "share_created.public_url" }}</strong></p>
                 <code id="share-url" style="display: block; padding: 1rem; background: var(--control-bg); border: 1px solid var(--border-color); word-break: break-all; margin: 1rem 0;">{{ .PublicURL }}/s/{{ .PublicToken }}</code>
                 <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <button onclick="copyToClipboard('share-url')" class="btn btn-sm btn-secondary">
+                    <button type="button" onclick="copyToClipboard('share-url')" class="btn btn-sm btn-secondary">
                         {{ call .T "share_created.copy" }}
                     </button>
                     <a href="/s/{{ .PublicToken }}" style="background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold;">
@@ -23,7 +23,7 @@
                 <p><strong>{{ call .T "share_created.password" }}</strong></p>
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ call .T "share_created.password_hint" }}</p>
                 <code id="share-password" style="display: block; padding: 1rem; background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); font-size: 1.5rem; letter-spacing: 0.2rem; margin: 1rem 0;">{{ .SharePassword }}</code>
-                <button onclick="copyToClipboard('share-password')" class="btn btn-sm btn-secondary">
+                <button type="button" onclick="copyToClipboard('share-password')" class="btn btn-sm btn-secondary">
                     {{ call .T "share_created.copy" }}
                 </button>
             </div>
@@ -37,11 +37,46 @@
     </div>
 
     <script>
-        function copyToClipboard(id) {
-            var text = document.getElementById(id).innerText;
-            navigator.clipboard.writeText(text).then(function() {
+        async function copyTextToClipboard(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Clipboard API copy failed, falling back to execCommand:', err);
+            }
+
+            const fallback = document.createElement('textarea');
+            fallback.value = text;
+            fallback.setAttribute('readonly', 'readonly');
+            fallback.style.position = 'fixed';
+            fallback.style.opacity = '0';
+            document.body.appendChild(fallback);
+            fallback.select();
+            fallback.setSelectionRange(0, fallback.value.length);
+
+            let ok = false;
+            try {
+                ok = document.execCommand('copy');
+            } catch (err) {
+                console.warn('execCommand copy failed:', err);
+            }
+
+            document.body.removeChild(fallback);
+            return ok;
+        }
+
+        async function copyToClipboard(id) {
+            const el = document.getElementById(id);
+            const text = el ? el.textContent.trim() : '';
+            if (!text) {
+                return;
+            }
+            const copied = await copyTextToClipboard(text);
+            if (copied) {
                 alert('{{ call .T "share_created.copied" }}');
-            });
+            }
         }
     </script>
 {{ end }}
