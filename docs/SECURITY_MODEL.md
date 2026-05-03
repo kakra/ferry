@@ -57,7 +57,18 @@ This document summarizes implemented security properties, current hardening meas
 - **No distributed deployment model:** ferry is intentionally single-node and SQLite-backed.
 - **No complete quota enforcement layer yet:** Size and retention limits are configured, but they are not a substitute for external storage controls.
 - **No remote break-glass administration:** Recovery mode is intentionally local-only and must be started explicitly.
-- **No CDN-free asset policy yet:** ferry still relies on externally hosted application assets in some places. A future release may move those dependencies to self-hosted bundles. Branding URLs remain allowed because they are treated as operator-controlled first-party content, not third-party delivery networks.
+- **Browser assets are still a supply-chain concern:** ferry must eventually vendor browser-side libraries such as `htmx` and `tus-js-client`, verify them against an authoritative manifest, and embed them into the Go binary so production builds no longer depend on runtime downloads from public CDNs. Branding URLs remain allowed because they are treated as operator-controlled first-party content, not third-party delivery networks.
+
+## 🌐 Planned Browser Asset Hardening
+- **Planned Breaking Change:** This is intended as a future release change, likely in a 1.x hardening release or in v2. It will replace configurable browser asset URLs with convention-based, operator-provided files.
+- **Vendored Assets:** Browser assets such as `htmx` and `tus-js-client` should live in the repository and become part of the release artifact.
+- **Manifest-Driven Verification:** A manifest must declare asset name, version, upstream URL, license, local path, and SHA256 checksum.
+- **Build Guarantees:** Normal builds must never download browser assets from the internet. Builds must continue to work even if upstream URLs disappear.
+- **CI Enforcement:** Local vendored assets must be checked against manifest checksums during build, test, and CI; any missing asset or checksum mismatch must fail validation.
+- **Binary Packaging:** Vendored browser assets should be embedded into the Go binary via `go:embed`.
+- **Update Workflow:** A developer-only helper under `tools/` may rewrite vendored assets and refresh the manifest. Updating an asset must commit both the file change and the manifest change.
+- **Build Pipeline Scope:** This policy must not introduce Node.js/npm or a `hack/` directory.
+- **CSP Impact:** Runtime loading from public CDNs should no longer be required once the vendored assets are in place.
 
 ## 🚀 Development Process
 Ferry is built using a **Multi-AI Orchestration** approach:

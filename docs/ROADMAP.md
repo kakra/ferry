@@ -16,6 +16,7 @@ This roadmap lists supported v1 capabilities and planned work after the first pu
 - Canonical external identities in `USER@REALM` form.
 - LDAP auto-provisioning into local user records while keeping permissions in SQLite.
 - Optional LDAP field mapping for non-AD directories.
+- Planned breaking browser asset hardening for a future 1.x or v2 release: replace configurable browser asset URLs with convention-based, operator-provided files; vendor `htmx` and `tus-js-client` with manifest checksums, `go:embed` packaging, and a developer-only update helper under `tools/`.
 - DB-backed session storage if centralized session listing or revocation becomes necessary.
 - Narrow mobile table refinements to reduce horizontal scrolling.
 - Enforced file, share, and storage quota limits.
