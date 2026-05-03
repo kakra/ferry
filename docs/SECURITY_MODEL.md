@@ -57,6 +57,7 @@ This document summarizes implemented security properties, current hardening meas
 - **No distributed deployment model:** ferry is intentionally single-node and SQLite-backed.
 - **No complete quota enforcement layer yet:** Size and retention limits are configured, but they are not a substitute for external storage controls.
 - **No remote break-glass administration:** Recovery mode is intentionally local-only and must be started explicitly.
+- **No CDN-free asset policy yet:** ferry still relies on externally hosted application assets in some places. A future release may move those dependencies to self-hosted bundles. Branding URLs remain allowed because they are treated as operator-controlled first-party content, not third-party delivery networks.
 
 ## 🚀 Development Process
 Ferry is built using a **Multi-AI Orchestration** approach:
