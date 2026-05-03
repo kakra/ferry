@@ -113,7 +113,7 @@
     {{ template "_file_list_area.html" . }}
 
     {{ if or (and (eq .Share.Type "upload") (not .CanManageShare)) (and (eq .Share.Type "download") .CanManageShare) }}
-    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.1/dist/tus.min.js"></script>
+    <script src="https://unpkg.com/tus-js-client@3.1.1/dist/tus.min.js"></script>
     <script>
         async function copyTextToClipboard(text) {
             try {

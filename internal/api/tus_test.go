@@ -287,6 +287,48 @@ func TestHandleTUSUpload_PostThenPatch_Succeeds(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, missingTokenRec.Code)
 }
 
+func TestHandleTUSUpload_AdminPrepToken_Succeeds(t *testing.T) {
+	srv, client, cfg := setupTestServer(t)
+	createLocalAdminUser(t, srv, "admin", "secret123", false, true)
+	password := "secure-pass"
+	pwHash, _ := auth.HashPassword(password)
+
+	sh, _ := client.Share.Create().
+		SetTitle("Prep Share").
+		SetTokenHash(internalShare.HashToken("ignored-public-token", cfg.Security.TokenSecret)).
+		SetType(share.TypeUpload).
+		SetExpiresAt(time.Now().Add(1 * time.Hour)).
+		SetPasswordHash(pwHash).
+		Save(context.Background())
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/upload/", nil)
+	postReq.Header.Set("Tus-Resumable", "1.0.0")
+	postReq.Header.Set("Upload-Length", "10")
+	postReq.Header.Set("Upload-Metadata", fmt.Sprintf("filename %s,share_token %s",
+		base64.StdEncoding.EncodeToString([]byte("prep.txt")),
+		base64.StdEncoding.EncodeToString([]byte("id:"+sh.ID.String())),
+	))
+	attachAdminSession(t, srv, postReq, "admin")
+	postRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(postRec, postReq)
+
+	assert.Equal(t, http.StatusCreated, postRec.Code)
+	location := postRec.Header().Get("Location")
+	assert.NotEmpty(t, location)
+
+	patchReq := httptest.NewRequest(http.MethodPatch, location, bytes.NewBufferString("hello"))
+	patchReq.Header.Set("Tus-Resumable", "1.0.0")
+	patchReq.Header.Set("X-Ferry-Share-Token", "id:"+sh.ID.String())
+	patchReq.Header.Set("Upload-Offset", "0")
+	patchReq.Header.Set("Content-Type", "application/offset+octet-stream")
+	attachAdminSession(t, srv, patchReq, "admin")
+	patchRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(patchRec, patchReq)
+
+	assert.Equal(t, http.StatusNoContent, patchRec.Code)
+	assert.Equal(t, "5", patchRec.Header().Get("Upload-Offset"))
+}
+
 func TestHandleFileDelete_Ownership_Full(t *testing.T) {
 	srv, client, cfg := setupTestServer(t)
 	token, _ := internalShare.GenerateToken()

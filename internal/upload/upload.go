@@ -148,7 +148,7 @@ func (m *Manager) preUploadCreate(hook handler.HookEvent) (handler.HTTPResponse,
 			Only(context.Background())
 
 		if err == nil {
-			secureHash = targetShare.TokenHash
+			secureHash = internalShare.HashToken(token, m.config.Security.TokenSecret)
 		}
 	} else {
 		// Guest uploads use the public token and are limited to upload shares.
@@ -170,10 +170,17 @@ func (m *Manager) preUploadCreate(hook handler.HookEvent) (handler.HTTPResponse,
 		return handler.HTTPResponse{}, handler.FileInfoChanges{}, handler.NewError("ERR_INVALID_SHARE", "Share not found or expired", http.StatusForbidden)
 	}
 
-	// Store only the token hash in tusd metadata so the public token is not persisted.
+	// Store the request token hash for follow-up authorization.
+	// For management uploads, keep the share lookup hash separate so PATCH/HEAD
+	// validation can stay bound to the request token while finalization still
+	// resolves the owning share correctly.
 	md := handler.MetaData{
-		"share_token_hash": secureHash,
-		"filename":         hook.Upload.MetaData["filename"],
+		"share_token_hash":  secureHash,
+		"filename":          hook.Upload.MetaData["filename"],
+		"share_lookup_hash": secureHash,
+	}
+	if strings.HasPrefix(token, "id:") && targetShare != nil {
+		md["share_lookup_hash"] = targetShare.TokenHash
 	}
 
 	// The API layer assigns session IDs; clients must not be able to choose them.
@@ -208,9 +215,12 @@ func (m *Manager) StartHookListener(ctx context.Context) {
 }
 
 func (m *Manager) finalizeUpload(ctx context.Context, info handler.FileInfo) (*uuid.UUID, string, error) {
-	shareTokenHash, ok := info.MetaData["share_token_hash"]
-	if !ok {
-		return nil, "", fmt.Errorf("missing share_token_hash in metadata")
+	shareTokenHash, ok := info.MetaData["share_lookup_hash"]
+	if !ok || shareTokenHash == "" {
+		shareTokenHash, ok = info.MetaData["share_token_hash"]
+	}
+	if !ok || shareTokenHash == "" {
+		return nil, "", fmt.Errorf("missing share lookup hash in metadata")
 	}
 	originalName := info.MetaData["filename"]
 	if originalName == "" {
