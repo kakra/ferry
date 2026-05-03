@@ -267,6 +267,7 @@ func TestHandleTUSUpload_PostThenPatch_Succeeds(t *testing.T) {
 	patchReq := httptest.NewRequest(http.MethodPatch, location, bytes.NewBufferString("hello"))
 	patchReq.Header.Set("Cookie", cookie)
 	patchReq.Header.Set("Tus-Resumable", "1.0.0")
+	patchReq.Header.Set("X-Ferry-Share-Token", token)
 	patchReq.Header.Set("Upload-Offset", "0")
 	patchReq.Header.Set("Content-Type", "application/offset+octet-stream")
 	patchRec := httptest.NewRecorder()
@@ -274,6 +275,16 @@ func TestHandleTUSUpload_PostThenPatch_Succeeds(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, patchRec.Code)
 	assert.Equal(t, "5", patchRec.Header().Get("Upload-Offset"))
+
+	missingTokenReq := httptest.NewRequest(http.MethodPatch, location, bytes.NewBufferString("hello"))
+	missingTokenReq.Header.Set("Cookie", cookie)
+	missingTokenReq.Header.Set("Tus-Resumable", "1.0.0")
+	missingTokenReq.Header.Set("Upload-Offset", "0")
+	missingTokenReq.Header.Set("Content-Type", "application/offset+octet-stream")
+	missingTokenRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(missingTokenRec, missingTokenReq)
+
+	assert.Equal(t, http.StatusUnauthorized, missingTokenRec.Code)
 }
 
 func TestHandleFileDelete_Ownership_Full(t *testing.T) {

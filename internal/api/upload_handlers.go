@@ -8,6 +8,8 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ import (
 	internalShare "github.com/kakra/ferry/internal/share"
 	"github.com/kakra/ferry/internal/upload"
 	"github.com/labstack/echo/v4"
+	tushandler "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func (s *Server) handleGetUploadStatus(c echo.Context) error {
@@ -95,6 +98,12 @@ func (s *Server) handleTUSUpload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Uploads are disabled in break-glass mode")
 	}
 
+	if c.Request().Method == http.MethodHead || c.Request().Method == http.MethodPatch {
+		if err := s.validateTUSFollowUp(c); err != nil {
+			return err
+		}
+	}
+
 	// tusd validates chunks after creation; Ferry validates share access before creating an upload.
 	if c.Request().Method == http.MethodPost {
 		metadata := c.Request().Header.Get("Upload-Metadata")
@@ -143,4 +152,60 @@ func (s *Server) handleTUSUpload(c echo.Context) error {
 
 	s.upload.ServeHTTP(c.Response().Writer, c.Request())
 	return nil
+}
+
+func (s *Server) validateTUSFollowUp(c echo.Context) error {
+	token := c.Request().Header.Get("X-Ferry-Share-Token")
+	if token == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Missing share token")
+	}
+
+	path := c.Request().URL.Path
+	if !strings.HasPrefix(path, "/api/upload/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid upload path")
+	}
+
+	if s.upload == nil || s.upload.Handler == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Upload manager not initialized")
+	}
+
+	req := c.Request().Clone(c.Request().Context())
+	req.Method = http.MethodHead
+	req.URL = cloneURL(c.Request().URL)
+	req.URL.Path = "/" + strings.Trim(strings.TrimPrefix(req.URL.Path, "/api/upload"), "/")
+	req.RequestURI = req.URL.RequestURI()
+	rec := httptest.NewRecorder()
+	s.upload.Handler.HeadFile(rec, req)
+
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNoContent {
+		msg := strings.TrimSpace(rec.Body.String())
+		if msg == "" {
+			msg = "Upload not found"
+		}
+		return echo.NewHTTPError(rec.Code, msg)
+	}
+
+	meta := tushandler.ParseMetadataHeader(rec.Header().Get("Upload-Metadata"))
+	if meta["share_token_hash"] == "" {
+		return echo.NewHTTPError(http.StatusForbidden, "Upload metadata is incomplete")
+	}
+
+	expectedHash := internalShare.HashToken(token, s.config.Security.TokenSecret)
+	if meta["share_token_hash"] != expectedHash {
+		return echo.NewHTTPError(http.StatusForbidden, "Unauthorized upload access")
+	}
+
+	if !s.isShareUnlocked(c, token) {
+		return echo.NewHTTPError(http.StatusForbidden, "Share not unlocked")
+	}
+
+	return nil
+}
+
+func cloneURL(u *url.URL) *url.URL {
+	if u == nil {
+		return &url.URL{}
+	}
+	u2 := *u
+	return &u2
 }
