@@ -86,8 +86,16 @@ The **cleanup worker is fully implemented** and manages the lifecycle of physica
 ### Authority & Authentication
 - **Authority:** Local SQLite users are the source of truth for permissions, ownership, and disabled state.
 - **Local Users Always Exist:** Every authenticated identity is represented as a local SQLite user. Planned external providers such as LDAP/AD will provision or update local user records instead of becoming an authorization backend.
+- **Login Policy:** Any active local user may log in if the password is valid. Global management rights are not required for authentication.
 - **LDAP:** LDAP/AD is planned as an authentication provider only. Local `disabled` state and local permissions remain authoritative.
 - **No Public Sign-up:** User management is strictly internal.
+
+### Role Model
+- **Admin:** Platform-level role for user administration and server internals. Admins can manage users, inspect status and logs, and perform recovery-oriented maintenance.
+- **Manager:** Share-management role. Managers can see and manage shares according to their granted scope.
+- **Owner:** A per-share relation, not a global role. The owner of a share automatically acts as that share's manager.
+- **Orthogonality:** Admin and Manager are separate capabilities. A user may have one, both, or neither.
+- **Current Product Rule:** Normal authenticated users may still manage their own shares through ownership, even when they do not hold global management permissions.
 
 ### Identity Model
 - **Local Accounts:** Local users authenticate with a locally managed password hash and must not contain `@` in their username.
@@ -118,8 +126,9 @@ The **cleanup worker is fully implemented** and manages the lifecycle of physica
 - **Guest Unlock Revocation:** Changing a share password must invalidate all existing guest unlock sessions for that share. This should be enforced with a server-validated share-specific unlock version or equivalent nonce/timestamp, not by trusting a bare boolean in the cookie alone.
 
 ### Multi-User Permissions
-- `can_manage_all_shares`: Global visibility and management rights.
-- `can_manage_users`: Right to manage other users and system permissions.
+- `can_manage_all_shares`: Global share-management rights.
+- `can_manage_users`: Platform-admin rights for managing other users and system permissions.
+- **Ownership Override:** Share ownership grants management rights for that specific share even without global `can_manage_all_shares`.
 - **Self-Protection:** Admin users cannot delete or disable themselves, or remove their own last user-management permission.
 
 ### Bootstrap & Administration
@@ -133,17 +142,22 @@ The **cleanup worker is fully implemented** and manages the lifecycle of physica
 
 ### `/create` Automation Deep-Link
 - **Purpose:** Fast-track share creation for external systems (e.g., Ticket-Systems, CRM, Scripts).
-- **Authentication:** Requires an active administrator session.
+- **Authentication:** Requires an authenticated user with share-management rights.
 - **Query Parameters:**
     - `title`: Pre-fills the share title.
     - `note`: Pre-fills the share note/message.
-- **Behavior:** Renders a focused share creation form with pre-filled fields. Submitting the form creates a normal share owned by the authenticated admin.
+- **Behavior:** Renders a focused share creation form with pre-filled fields. Submitting the form creates a normal share owned by the authenticated user.
 
 ### Admin `id:<uuid>` Preparation Path
 - **Purpose:** Allows administrators to reopen and prepare a share (add/remove files) without possessing the public token.
 - **Access:** Only valid for active administrator sessions.
 - **URL Pattern:** `/admin/shares/:id/prepare` (internal redirect to `/s/id:<uuid>`).
 - **Security:** The `id:` prefix is a reserved internal token format. It is never valid for public guest access and is strictly bound to admin authorization.
+
+### Share Direction Semantics
+- **Sende-Share:** The share is prepared by the owner or manager and sent outward to a recipient. The recipient mostly downloads, while the owner may upload content during preparation.
+- **Empfangs-Share:** The share is opened for inbound collection. The recipient mostly uploads, while the owner later reviews and downloads the received content.
+- **Important:** Both share types can involve uploads and downloads. The type describes the expected workflow direction, not an exclusive protocol restriction.
 
 ### System Monitoring & Status (`/status`)
 - **Metrics Scope:**

@@ -24,6 +24,7 @@ This document summarizes implemented security properties, current hardening meas
 - **Passwords:** All passwords (user and share) are hashed using **Argon2id**, the winner of the Password Hashing Competition.
 - **Sessions:** Cookies are configured with `HttpOnly` and `SameSite=Lax`. The `Secure` flag is enabled when ferry is deployed behind a reverse proxy.
 - **Rate Limiting:** Built-in protection for `/login` and `/unlock` endpoints (0.2 req/s) to prevent brute-force attacks.
+- **Role Separation:** Authentication is independent from management rights. Any active local user may log in; admin and share-management capabilities are granted separately.
 
 ### 2. Share Protection
 - **Dual-Token Logic:** Links use a random public token, but the server only stores its **hash**. Even a database leak doesn't reveal valid share links.

@@ -3,8 +3,8 @@
 This roadmap lists supported v1 capabilities and planned work after the first public release. It is intentionally release-facing and omits internal development milestones.
 
 ## v1.0.0 Scope
-- SQLite-backed local users, permissions, and share ownership.
-- Password-protected upload and download shares with expiring public links.
+- SQLite-backed local users, admin/manager roles, and per-share ownership.
+- Password-protected send and receive shares with expiring public links.
 - TUS-based resumable uploads with content-addressable storage and deduplication.
 - Mark-and-sweep cleanup for expired shares, incomplete uploads, and unreachable blobs.
 - Initial setup via `/setup` and explicit local recovery via `ferry break-glass`.
@@ -26,4 +26,3 @@ This roadmap lists supported v1 capabilities and planned work after the first pu
 - **GDPR Compliance:** IP anonymization for logs and database field encryption.
 - **Migration Tools:** CLI tools for bulk-encrypting existing storage.
 - See [GDPR_ENCRYPTION_PLAN.md](GDPR_ENCRYPTION_PLAN.md) for details.
-
