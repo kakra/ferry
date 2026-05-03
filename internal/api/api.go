@@ -179,7 +179,7 @@ func (s *Server) routes() {
 	s.echo.GET("/logout", s.handleLogout)
 	s.echo.GET("/health", s.handleHealth)
 	s.echo.GET("/setup", s.handleSetup)
-	s.echo.POST("/setup", s.handleSetupPost)
+	s.echo.POST("/setup", s.handleSetupPost, s.authRateLimiter())
 	s.echo.GET("/s/:token", s.handlePublicShare)
 	s.echo.GET("/s/:token/files-fragment", s.handleGetFilesFragment)
 	s.echo.GET("/s/:token/unlock", s.handlePublicShareUnlock)

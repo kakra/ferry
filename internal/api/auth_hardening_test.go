@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -125,4 +127,26 @@ func TestHandleGetUploadStatus_SecurityAndHTMX(t *testing.T) {
 		assert.NotContains(t, body, `style=`)
 		assert.NotContains(t, body, "color: red")
 	})
+}
+
+func TestAuthRateLimiter_ProtectsSetup(t *testing.T) {
+	srv, cfg := setupBaseServer(t)
+	cfg.Auth.BootstrapPassword = "bootstrap-secret"
+
+	form := url.Values{}
+	form.Set("bootstrap_password", "wrong")
+	form.Set("username", "admin")
+	form.Set("display_name", "Boss")
+	form.Set("password", "secret123")
+
+	var lastCode int
+	for i := 0; i < 6; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/setup", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		lastCode = rec.Code
+	}
+
+	assert.Equal(t, http.StatusTooManyRequests, lastCode)
 }
