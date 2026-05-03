@@ -30,6 +30,8 @@ de:
     create_upload_share: "Upload-Link erstellen (Dateien empfangen)"
     active_shares: "Aktive Freigaben"
     prepare: "Vorbereiten"
+    edit_share: "Freigabe bearbeiten"
+    save_share_details: "Änderungen speichern"
     form:
       share_title: "Titel der Freigabe"
       note: "Notiz / Nachricht"

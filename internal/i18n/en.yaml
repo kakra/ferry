@@ -30,6 +30,8 @@ en:
     create_upload_share: "Create Upload Link (Receive files)"
     active_shares: "Active Shares"
     prepare: "Prepare"
+    edit_share: "Edit Share Details"
+    save_share_details: "Save Details"
     form:
       share_title: "Share Title"
       note: "Note / Message"

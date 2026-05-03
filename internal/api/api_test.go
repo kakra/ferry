@@ -753,6 +753,54 @@ func TestHandleAdminSharePrepare_ShowsPublicShareURL(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), cfg.Server.PublicURL+"/s/"+token)
 }
 
+func TestHandleUpdateShareDetails_AllowsOwner(t *testing.T) {
+	srv, _ := setupBaseServer(t)
+	createLocalAdminUser(t, srv, "owner", "secret123", false, false)
+
+	ctx := context.Background()
+	u, err := srv.db.User.Query().Where(user.UsernameEQ("owner")).Only(ctx)
+	require.NoError(t, err)
+	_, err = u.Update().
+		SetCanManageUsers(false).
+		SetCanManageAllShares(false).
+		Save(ctx)
+	require.NoError(t, err)
+
+	createReq := url.Values{}
+	createReq.Set("type", "download")
+	createReq.Set("title", "Original Title")
+	createReq.Set("note", "Original Note")
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/shares", strings.NewReader(createReq.Encode()))
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	attachUserSession(t, srv, postReq, u.ID)
+	postRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(postRec, postReq)
+	require.Equal(t, http.StatusOK, postRec.Code)
+
+	sh, err := srv.db.Share.Query().Where(share.OwnerIDEQ(u.ID)).Only(ctx)
+	require.NoError(t, err)
+
+	editForm := url.Values{}
+	editForm.Set("title", "Updated Title")
+	editForm.Set("note", "Updated Note")
+	editReq := httptest.NewRequest(http.MethodPost, "/admin/shares/"+sh.ID.String()+"/details", strings.NewReader(editForm.Encode()))
+	editReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	attachUserSession(t, srv, editReq, u.ID)
+	editRec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(editRec, editReq)
+
+	assert.Equal(t, http.StatusOK, editRec.Code)
+	assert.Contains(t, editRec.Body.String(), "Updated Title")
+	assert.Contains(t, editRec.Body.String(), "Updated Note")
+
+	updated, err := srv.db.Share.Get(ctx, sh.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Title", updated.Title)
+	require.NotNil(t, updated.Note)
+	assert.Equal(t, "Updated Note", *updated.Note)
+}
+
 func TestHandleRotateSharePassword_RendersValidPublicLink(t *testing.T) {
 	srv, cfg := setupBaseServer(t)
 	createLocalAdminUser(t, srv, "admin", "secret123", false, true)

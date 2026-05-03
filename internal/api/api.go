@@ -225,6 +225,7 @@ func (s *Server) routes() {
 	admin.GET("/admin/logs", s.handleLogs, s.adminOnlyMiddleware)
 	admin.POST("/api/shares", s.handleCreateShare)
 	admin.GET("/admin/shares/:id/prepare", s.handleAdminSharePrepare)
+	admin.POST("/admin/shares/:id/details", s.handleUpdateShareDetails)
 	admin.POST("/admin/shares/:id/password", s.handleRotateSharePassword)
 	admin.POST("/admin/shares/:id/delete", s.handleDeleteShare)
 	admin.POST("/admin/users", s.handleCreateUser, s.adminOnlyMiddleware)

@@ -266,6 +266,63 @@ func (s *Server) handleAdminSharePrepare(c echo.Context) error {
 	return s.renderPublicShare(c, sh, prepToken, true)
 }
 
+func (s *Server) handleUpdateShareDetails(c echo.Context) error {
+	if s.breakGlass {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Share editing is disabled in break-glass mode")
+	}
+
+	shareID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid share ID")
+	}
+
+	title := strings.TrimSpace(c.FormValue("title"))
+	if title == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Title is required")
+	}
+
+	note := strings.TrimSpace(c.FormValue("note"))
+
+	sh, err := s.db.Share.Get(c.Request().Context(), shareID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
+		}
+		return err
+	}
+	if !s.canManageShare(c, sh) {
+		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
+	}
+
+	updater := sh.Update().
+		SetTitle(title)
+	if note == "" {
+		updater.ClearNote()
+	} else {
+		updater.SetNote(note)
+	}
+
+	updatedShare, err := updater.Save(c.Request().Context())
+	if err != nil {
+		return err
+	}
+
+	updatedShare, err = s.db.Share.Query().
+		Where(share.IDEQ(updatedShare.ID)).
+		WithFiles(func(q *ent.FileQuery) {
+			q.WithBlob()
+			q.Order(ent.Asc(file.FieldOriginalName), ent.Asc(file.FieldCreatedAt))
+		}).
+		Only(c.Request().Context())
+	if err != nil {
+		return err
+	}
+
+	prepToken := "id:" + updatedShare.ID.String()
+	setNoStoreHeaders(c)
+	return s.renderPublicShare(c, updatedShare, prepToken, true)
+}
+
 func (s *Server) handlePublicShareUnlock(c echo.Context) error {
 	if s.breakGlass {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Public share access is disabled in break-glass mode")
