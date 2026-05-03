@@ -25,33 +25,45 @@ import (
 )
 
 func (s *Server) handleIndex(c echo.Context) error {
+	currentUser, err := s.currentUser(c)
+	if err != nil {
+		return err
+	}
+
 	currentFilter := dashboardFilterValue(c.QueryParam("filter"))
 	currentSort := dashboardSortValue(c.QueryParam("sort"))
+	shareScopeAll := s.breakGlass || s.canManageAllShares(c)
 
 	// Use a safety buffer (1 minute) to avoid showing expired shares that just ticked over
-	shares, err := s.db.Share.Query().
+	shareQuery := s.db.Share.Query().
 		Where(share.ExpiresAtGT(time.Now().Add(-1 * time.Minute))).
 		WithFiles(func(q *ent.FileQuery) {
 			q.Select(file.FieldID, file.FieldCreatedAt)
-		}).
-		All(c.Request().Context())
+		})
+	if !shareScopeAll {
+		if currentUser != nil {
+			shareQuery.Where(share.OwnerIDEQ(currentUser.ID))
+		} else {
+			shareQuery.Where(share.IDEQ(uuid.Nil))
+		}
+	}
+	shares, err := shareQuery.All(c.Request().Context())
 	if err != nil {
 		log.Printf("Error querying shares: %v", err)
 		return err
 	}
-	shareViews := buildDashboardShareViews(c.Request().Context(), shares, currentFilter, currentSort)
+	shareViews := buildDashboardShareViews(c.Request().Context(), shares, currentUser, shareScopeAll, currentFilter, currentSort)
 
-	users, err := s.db.User.Query().
-		Order(ent.Asc(user.FieldUsername)).
-		All(c.Request().Context())
-	if err != nil {
-		log.Printf("Error querying users: %v", err)
-		return err
-	}
-
-	currentUser, err := s.currentUser(c)
-	if err != nil {
-		return err
+	hasUsers := !s.noUsersExist(c.Request().Context())
+	users := []*ent.User(nil)
+	if s.canManageUsers(c) || s.breakGlass {
+		users, err = s.db.User.Query().
+			Order(ent.Asc(user.FieldUsername)).
+			All(c.Request().Context())
+		if err != nil {
+			log.Printf("Error querying users: %v", err)
+			return err
+		}
 	}
 
 	setNoStoreHeaders(c)
@@ -59,9 +71,12 @@ func (s *Server) handleIndex(c echo.Context) error {
 		"UI":                s.config.UI,
 		"Shares":            shareViews,
 		"Users":             users,
+		"HasUsers":          hasUsers,
 		"CurrentUser":       currentUser,
 		"BreakGlassMode":    s.breakGlass,
-		"CanManageShares":   s.canManageShares(c),
+		"CanCreateShare":    !s.breakGlass && currentUser != nil,
+		"CanManageUsers":    s.canManageUsers(c),
+		"CanManageShares":   shareScopeAll,
 		"ExpirationOptions": shareExpirationOptions(),
 		"DefaultExpiration": defaultShareExpiration(s.config),
 		"CurrentFilter":     currentFilter,
@@ -132,6 +147,7 @@ type dashboardShareView struct {
 	LifetimePercent    int
 	LifetimeBarColor   string
 	LifetimeBackground string
+	CanManage          bool
 }
 
 func dashboardFilterValue(raw string) string {
@@ -152,7 +168,7 @@ func dashboardSortValue(raw string) string {
 	}
 }
 
-func buildDashboardShareViews(ctx context.Context, shares []*ent.Share, filter, sortMode string) []dashboardShareView {
+func buildDashboardShareViews(ctx context.Context, shares []*ent.Share, currentUser *ent.User, canManageAllShares bool, filter, sortMode string) []dashboardShareView {
 	views := make([]dashboardShareView, 0, len(shares))
 	for _, sh := range shares {
 		if filter != "all" && string(sh.Type) != filter {
@@ -189,6 +205,7 @@ func buildDashboardShareViews(ctx context.Context, shares []*ent.Share, filter, 
 			LifetimePercent:    lifetimePercent,
 			LifetimeBarColor:   barColor,
 			LifetimeBackground: barBackground,
+			CanManage:          canManageAllShares || (currentUser != nil && sh.OwnerID != nil && *sh.OwnerID == currentUser.ID),
 		})
 	}
 

@@ -13,7 +13,7 @@
             <a href="/s/{{ .ShareToken }}/files/{{ .File.ID }}/download" class="btn btn-sm btn-secondary">
             {{ call .T "common.download" }}
             </a>
-            {{ if or .IsAdmin (and .File.UploadSessionID (eq .File.UploadSessionID.String .UploadSessionID)) }}
+            {{ if or .CanManageShare (and .File.UploadSessionID (eq .File.UploadSessionID.String .UploadSessionID)) }}
                 <button onclick="deleteFile('{{ .File.ID }}')" class="btn btn-sm btn-outline-danger">
                     {{ call .T "admin.delete" }}
                 </button>

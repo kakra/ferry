@@ -167,7 +167,7 @@ func (t *TemplateRenderer) addViewHelpers(data interface{}, c echo.Context) map[
 	if csrfToken := c.Get("csrf"); csrfToken != nil {
 		viewData["CSRFToken"] = csrfToken.(string)
 	}
-	viewData["IsAuthenticated"] = t.server.isAdmin(c)
+	viewData["IsAuthenticated"] = t.server.isAuthenticated(c)
 	viewData["Version"] = version.Version
 
 	return viewData

@@ -292,17 +292,17 @@ func TestBuildDashboardShareViews_FilterAndSort(t *testing.T) {
 		ExpiresAt: now.Add(12 * time.Hour),
 	}
 
-	views := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, "all", "activity")
+	views := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, nil, false, "all", "activity")
 	require.Len(t, views, 3)
 	assert.Equal(t, "Idle Share", views[0].Title)
 	assert.Equal(t, "Upload Share", views[1].Title)
 	assert.Equal(t, "Download Share", views[2].Title)
 
-	filtered := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, "upload", "activity")
+	filtered := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, nil, false, "upload", "activity")
 	require.Len(t, filtered, 1)
 	assert.Equal(t, "Upload Share", filtered[0].Title)
 
-	expiring := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, "all", "expiry")
+	expiring := buildDashboardShareViews(context.Background(), []*ent.Share{downloadShare, uploadShare, idleShare}, nil, false, "all", "expiry")
 	require.Len(t, expiring, 3)
 	assert.Equal(t, "Idle Share", expiring[0].Title)
 }

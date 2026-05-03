@@ -123,12 +123,21 @@ func (s *Server) handleTUSUpload(c echo.Context) error {
 		uploadSID := s.getUploadSessionID(c, token)
 		ctx = context.WithValue(ctx, upload.SessionIDContextKey, uploadSID)
 
-		isAdmin := s.isAdmin(c)
-		if isAdmin {
+		isManagedUpload := s.isAdmin(c)
+		if !isManagedUpload && strings.HasPrefix(token, "id:") {
+			id, err := uuid.Parse(strings.TrimPrefix(token, "id:"))
+			if err == nil {
+				sh, shareErr := s.db.Share.Get(c.Request().Context(), id)
+				if shareErr == nil && s.canManageShare(c, sh) {
+					isManagedUpload = true
+				}
+			}
+		}
+		if isManagedUpload {
 			ctx = context.WithValue(ctx, upload.IsAdminContextKey, true)
 		}
 
-		log.Printf("TUS: Upload attempt for token %s (IsAdmin: %v, SessionID: %s)", token, isAdmin, uploadSID)
+		log.Printf("TUS: Upload attempt for token %s (Managed: %v, SessionID: %s)", token, isManagedUpload, uploadSID)
 		c.SetRequest(c.Request().WithContext(ctx))
 	}
 

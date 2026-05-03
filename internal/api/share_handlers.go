@@ -41,11 +41,12 @@ func (s *Server) handlePublicShare(c echo.Context) error {
 		return err
 	}
 
-	if !s.isShareUnlocked(c, token) {
+	canManageShare := s.canManageShare(c, sh)
+	if !canManageShare && !s.isShareUnlocked(c, token) {
 		return c.Redirect(http.StatusSeeOther, fmt.Sprintf("/s/%s/unlock", token))
 	}
 
-	return s.renderPublicShare(c, sh, token, s.isAdmin(c))
+	return s.renderPublicShare(c, sh, token, canManageShare)
 }
 
 func (s *Server) getActiveShareByToken(ctx context.Context, token string) (*ent.Share, error) {
@@ -60,14 +61,30 @@ func (s *Server) isShareUnlocked(c echo.Context, token string) bool {
 		return false
 	}
 
-	if s.isAdmin(c) {
+	if strings.HasPrefix(token, "id:") {
+		id, err := uuid.Parse(strings.TrimPrefix(token, "id:"))
+		if err != nil {
+			return false
+		}
+		sh, err := s.db.Share.Query().
+			Where(share.IDEQ(id)).
+			Where(share.ExpiresAtGT(time.Now())).
+			Only(c.Request().Context())
+		if err != nil {
+			return false
+		}
+		return s.canManageShare(c, sh)
+	}
+
+	sh, err := s.getActiveShareByToken(c.Request().Context(), token)
+	if err != nil {
+		return false
+	}
+
+	if s.canManageShare(c, sh) {
 		return true
 	}
 
-	// The id:<uuid> token form is an internal admin path and never unlocks guest access.
-	if strings.HasPrefix(token, "id:") {
-		return false
-	}
 	sess, _ := session.Get(sessionName, c)
 	if sess == nil {
 		return false
@@ -80,11 +97,6 @@ func (s *Server) isShareUnlocked(c echo.Context, token string) bool {
 
 	version, ok := sess.Values[guestUnlockVersionKey+token].(int)
 	if !ok {
-		return false
-	}
-
-	sh, err := s.getActiveShareByToken(c.Request().Context(), token)
-	if err != nil {
 		return false
 	}
 
@@ -137,10 +149,10 @@ func uploadSuccessIDsFromQuery(c echo.Context, sh *ent.Share) ([]string, map[str
 	return ids, seen
 }
 
-func (s *Server) renderPublicShare(c echo.Context, sh *ent.Share, token string, isAdmin bool) error {
+func (s *Server) renderPublicShare(c echo.Context, sh *ent.Share, token string, canManageShare bool) error {
 	uploadSID := s.getUploadSessionID(c, token)
 	publicShareURL := ""
-	if isAdmin && sh.PublicTokenEncrypted != nil {
+	if canManageShare && sh.PublicTokenEncrypted != nil {
 		publicToken, err := internalShare.DecryptToken(*sh.PublicTokenEncrypted, s.config.Security.TokenSecret)
 		if err == nil && publicToken != "" {
 			publicShareURL = fmt.Sprintf("%s/s/%s", s.config.Server.PublicURL, publicToken)
@@ -155,7 +167,7 @@ func (s *Server) renderPublicShare(c echo.Context, sh *ent.Share, token string, 
 		"UploadSuccessIDs":    map[string]bool{},
 		"UploadSuccessIDList": "",
 		"MaxUploadSuccessIDs": maxUploadSuccessIDs,
-		"IsAdmin":             isAdmin,
+		"CanManageShare":      canManageShare,
 		"PublicShareURL":      publicShareURL,
 	})
 }
@@ -166,9 +178,6 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 	var err error
 
 	if strings.HasPrefix(token, "id:") {
-		if !s.canManageShares(c) {
-			return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
-		}
 		id, err := uuid.Parse(strings.TrimPrefix(token, "id:"))
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid share ID")
@@ -177,6 +186,9 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 			q.WithBlob()
 			q.Order(ent.Asc(file.FieldOriginalName), ent.Asc(file.FieldCreatedAt))
 		}).Only(c.Request().Context())
+		if err == nil && !s.canManageShare(c, sh) {
+			return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
+		}
 	} else {
 		sh, err = s.db.Share.Query().
 			Where(share.TokenHashEQ(internalShare.HashToken(token, s.config.Security.TokenSecret))).
@@ -197,7 +209,7 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 
 	uploadSID := s.getUploadSessionID(c, token)
 	uploadSuccessIDList, uploadSuccessIDs := uploadSuccessIDsFromQuery(c, sh)
-	isAdmin := s.isAdmin(c)
+	canManageShare := s.canManageShare(c, sh)
 
 	data := map[string]interface{}{
 		"Share":               sh,
@@ -207,7 +219,7 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 		"UploadSuccessIDs":    uploadSuccessIDs,
 		"UploadSuccessIDList": strings.Join(uploadSuccessIDList, ","),
 		"MaxUploadSuccessIDs": maxUploadSuccessIDs,
-		"IsAdmin":             isAdmin,
+		"CanManageShare":      canManageShare,
 	}
 
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -221,9 +233,6 @@ func (s *Server) handleGetFilesFragment(c echo.Context) error {
 func (s *Server) handleAdminSharePrepare(c echo.Context) error {
 	if s.breakGlass {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Share preparation is disabled in break-glass mode")
-	}
-	if !s.canManageShares(c) {
-		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
 	}
 
 	idStr := c.Param("id")
@@ -246,6 +255,10 @@ func (s *Server) handleAdminSharePrepare(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found or expired")
 		}
 		return err
+	}
+
+	if !s.canManageShare(c, sh) {
+		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
 	}
 
 	// Prep mode reuses the share renderer without exposing the public token to the URL.
@@ -314,9 +327,6 @@ func (s *Server) handlePublicShareUnlockPost(c echo.Context) error {
 }
 
 func (s *Server) handleRotateSharePassword(c echo.Context) error {
-	if !s.canManageShares(c) {
-		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
-	}
 	if s.breakGlass {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Share password rotation is disabled in break-glass mode")
 	}
@@ -341,6 +351,10 @@ func (s *Server) handleRotateSharePassword(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
 		return err
+	}
+
+	if !s.canManageShare(c, sh) {
+		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
 	}
 
 	updatedShare, err := sh.Update().

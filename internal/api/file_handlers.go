@@ -34,7 +34,8 @@ func (s *Server) handleFileDownload(c echo.Context) error {
 
 	query := s.db.File.Query().
 		Where(file.IDEQ(fileID)).
-		WithBlob()
+		WithBlob().
+		WithShare()
 
 	if strings.HasPrefix(token, "id:") {
 		idStr := strings.TrimPrefix(token, "id:")
@@ -93,7 +94,7 @@ func (s *Server) handleFileDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Access restricted")
 	}
 
-	query := s.db.File.Query().Where(file.IDEQ(fileID))
+	query := s.db.File.Query().Where(file.IDEQ(fileID)).WithShare()
 	if strings.HasPrefix(token, "id:") {
 		idStr := strings.TrimPrefix(token, "id:")
 		id, err := uuid.Parse(idStr)
@@ -117,7 +118,7 @@ func (s *Server) handleFileDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
 
-	if !s.isAdmin(c) {
+	if !s.canManageShare(c, f.Edges.Share) {
 		uploadSIDStr := s.getUploadSessionID(c, token)
 		uploadSID, _ := uuid.Parse(uploadSIDStr)
 		if f.UploadSessionID == nil || *f.UploadSessionID != uploadSID {

@@ -18,7 +18,7 @@ import (
 
 func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if !s.isAdmin(c) {
+		if !s.isAuthenticated(c) {
 			nextURL := c.Request().URL.RequestURI()
 			return c.Redirect(http.StatusSeeOther, "/login?next="+url.QueryEscape(strings.TrimPrefix(nextURL, "/")))
 		}
@@ -81,8 +81,17 @@ func (s *Server) isAdmin(c echo.Context) bool {
 	if err != nil || u == nil || u.Disabled {
 		return false
 	}
-	// Admin area is accessible if user has ANY management right
-	return u.CanManageAllShares || u.CanManageUsers
+	// Platform admins manage users and server internals.
+	return u.CanManageUsers
+}
+
+func (s *Server) isAuthenticated(c echo.Context) bool {
+	if s.breakGlass {
+		return s.isAdmin(c)
+	}
+
+	u, err := s.currentUser(c)
+	return err == nil && u != nil && !u.Disabled
 }
 
 func (s *Server) canManageUsers(c echo.Context) bool {
@@ -97,7 +106,7 @@ func (s *Server) canManageUsers(c echo.Context) bool {
 	return u.CanManageUsers
 }
 
-func (s *Server) canManageShares(c echo.Context) bool {
+func (s *Server) canManageAllShares(c echo.Context) bool {
 	if s.breakGlass {
 		return s.isAdmin(c)
 	}
@@ -107,6 +116,21 @@ func (s *Server) canManageShares(c echo.Context) bool {
 		return false
 	}
 	return u.CanManageAllShares
+}
+
+func (s *Server) canManageShare(c echo.Context, sh *ent.Share) bool {
+	if sh == nil {
+		return false
+	}
+	if s.canManageAllShares(c) {
+		return true
+	}
+
+	u, err := s.currentUser(c)
+	if err != nil || u == nil || u.Disabled {
+		return false
+	}
+	return sh.OwnerID != nil && *sh.OwnerID == u.ID
 }
 
 func (s *Server) noUsersExist(ctx context.Context) bool {
@@ -185,7 +209,7 @@ func (s *Server) handleLoginPost(c echo.Context) error {
 			Only(c.Request().Context())
 		if err == nil && u.PasswordHash != nil {
 			match, verifyErr := auth.VerifyPassword(password, *u.PasswordHash)
-			if verifyErr == nil && match && (u.CanManageAllShares || u.CanManageUsers) {
+			if verifyErr == nil && match {
 				sess, _ := session.Get(sessionName, c)
 				sess.Values[userSessionKey] = u.ID.String()
 				delete(sess.Values, breakGlassSessionKey)

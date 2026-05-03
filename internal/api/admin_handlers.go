@@ -21,8 +21,12 @@ func (s *Server) handleCreateShare(c echo.Context) error {
 	if s.breakGlass {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Share creation is disabled in break-glass mode")
 	}
-	if !s.canManageShares(c) {
-		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
+	u, err := s.currentUser(c)
+	if err != nil {
+		return err
+	}
+	if u == nil || u.Disabled {
+		return echo.NewHTTPError(http.StatusUnauthorized, "No active user session")
 	}
 
 	token, err := internalShare.GenerateToken()
@@ -51,8 +55,6 @@ func (s *Server) handleCreateShare(c echo.Context) error {
 	}
 	note := c.FormValue("note")
 
-	u, _ := s.currentUser(c)
-
 	password, err := auth.GenerateHumanFriendlyPassword()
 	if err != nil {
 		return err
@@ -74,9 +76,7 @@ func (s *Server) handleCreateShare(c echo.Context) error {
 		SetPasswordHash(passwordHash).
 		SetTitle(title)
 
-	if u != nil {
-		sc.SetOwner(u)
-	}
+	sc.SetOwner(u)
 
 	if note != "" {
 		sc.SetNote(note)
@@ -322,10 +322,6 @@ func (s *Server) handleUpdateUserPermission(c echo.Context) error {
 }
 
 func (s *Server) handleDeleteShare(c echo.Context) error {
-	if !s.canManageShares(c) {
-		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
-	}
-
 	shareID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid share ID")
@@ -344,6 +340,17 @@ func (s *Server) handleDeleteShare(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
 		return err
+	}
+
+	sh, err := tx.Share.Query().Where(share.IDEQ(shareID)).Only(c.Request().Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
+		}
+		return err
+	}
+	if !s.canManageShare(c, sh) {
+		return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
 	}
 
 	if err := deleteShareWithDependencies(c.Request().Context(), tx, shareID); err != nil {

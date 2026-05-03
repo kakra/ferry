@@ -9,7 +9,7 @@
     </div>
     {{ end }}
     
-    {{ if and (not .BreakGlassMode) .CanManageShares }}
+    {{ if .CanCreateShare }}
     <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow); margin-bottom: 3rem;">
         <h3 style="margin-top: 0; margin-bottom: 1.5rem;">{{ call .T "admin.create_share" }}</h3>
         <form hx-post="/api/shares" hx-target="body" hx-indicator="#create-indicator">
@@ -106,7 +106,7 @@
                             <td style="padding: 1rem; font-size: 0.9rem; color: var(--text-muted); white-space: nowrap;">{{ .LastActivityText }}</td>
                             <td style="padding: 1rem; text-align: right;">
                                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; white-space: nowrap; flex-wrap: wrap;">
-                                    {{ if $.CanManageShares }}
+                                    {{ if .CanManage }}
                                     <a href="/admin/shares/{{ .ID }}/prepare" class="btn btn-sm btn-outline-primary">
                                         {{ if eq .Type "upload" }}{{ call $.T "admin.open_share" }}{{ else }}{{ call $.T "admin.prepare" }}{{ end }}
                                     </a>
@@ -130,7 +130,7 @@
                                     <span style="font-size: 0.8rem; color: var(--footer-text);">{{ call $.T "admin.no_share_permissions" }}</span>
                                     {{ end }}
                                 </div>
-                                {{ if or $.CanManageShares $.BreakGlassMode }}
+                                {{ if or .CanManage $.BreakGlassMode }}
                                 <div id="share-delete-form-{{ .ID }}" style="display: none; margin-top: 0.75rem; margin-left: auto; max-width: 20rem; text-align: left; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: 8px; padding: 0.85rem;">
                                     <div style="font-weight: 600; color: var(--danger-text); margin-bottom: 0.3rem;">
                                         {{ call $.T "admin.delete_share_title" }}
@@ -166,18 +166,11 @@
     
     <div id="status-area" style="margin-top: 3rem;"></div>
 
-    {{ $canManageUsers := false }}
-    {{ if .CurrentUser }}
-        {{ $canManageUsers = .CurrentUser.CanManageUsers }}
-    {{ else if or .BreakGlassMode (not .Users) }}
-        {{ $canManageUsers = true }}
-    {{ end }}
-
-    {{ if $canManageUsers }}
+    {{ if .CanManageUsers }}
     <div style="margin-top: 5rem; border-top: 2px solid var(--border-color); padding-top: 3rem;">
         <h2 id="users">{{ call .T "admin.users.title" }}</h2>
         
-        {{ if not .Users }}
+        {{ if not .HasUsers }}
         <!-- Bootstrap Mode: ONLY allow /setup path -->
         <div style="background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); padding: 2rem; border-radius: 8px; margin-bottom: 3rem; text-align: center;">
             <h3 style="margin-top: 0;">🛠️ {{ call .T "setup.title" }}</h3>
