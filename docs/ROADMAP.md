@@ -20,6 +20,7 @@ This roadmap lists supported v1 capabilities and planned work after the first pu
 - Narrow mobile table refinements to reduce horizontal scrolling.
 - Enforced file, share, and storage quota limits.
 - Dedicated API-token model for maintenance automation.
+- Semantic terminology split for shares: user-facing copy should say `Sending Share` and `Receiving Share` instead of describing the same workflow from the guest's point of view.
 
 ## Planned for v2.0 (Enterprise & GDPR)
 - **Encryption at Rest (EaR):** Convergent encryption for CAS blobs using a system master key.
