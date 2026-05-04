@@ -262,7 +262,7 @@ func (s *Server) handleSetupPost(c echo.Context) error {
 
 	bootstrapPassword := c.FormValue("bootstrap_password")
 	if bootstrapPassword != s.config.Auth.BootstrapPassword {
-		return c.Render(http.StatusUnauthorized, "setup.html", map[interface{}]interface{}{
+		return c.Render(http.StatusUnauthorized, "setup.html", map[string]interface{}{
 			"UI":    s.config.UI,
 			"Error": "Invalid bootstrap password",
 		})
