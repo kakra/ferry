@@ -155,10 +155,13 @@ The **cleanup worker is fully implemented** and manages the lifecycle of physica
 - **Security:** The `id:` prefix is a reserved internal token format. It is never valid for public guest access and is strictly bound to admin authorization.
 
 ### Share Direction Semantics
-- **Sending Share:** The share is prepared by the owner or manager and sent outward to a recipient. The recipient mostly downloads, while the owner may upload content during preparation.
-- **Receiving Share:** The share is opened for inbound collection. The recipient mostly uploads, while the owner later reviews and downloads the received content.
-- **Important:** Both share types can involve uploads and downloads. The type describes the expected workflow direction, not an exclusive protocol restriction.
-- **Terminology Rule:** User-facing labels should describe the workflow direction itself, not the guest-side action. Avoid wording that would reintroduce the old `Upload-Share` / `Download-Share` ambiguity.
+
+The current semantic contract for share direction terminology is documented in [SHARE_SEMANTICS.md](SHARE_SEMANTICS.md).
+
+- Share `type` is guest-facing: `upload` means the guest is expected to upload, and `download` means the guest is expected to download.
+- Managers and owners may still upload or download on either share type depending on their role and the workflow they are handling.
+- The current terminology is intentionally preserved for v1 compatibility, but it is known to be easy to misread.
+- The next major release should rename the share types to workflow-oriented terms such as `Send Share` and `Receive Share` throughout the code, UI, and documentation.
 
 ### System Monitoring & Status (`/status`)
 - **Metrics Scope:**
