@@ -19,7 +19,7 @@ type Storage interface {
 	PutFromPath(sourcePath string) (*BlobInfo, error)
 
 	// Open returns a reader for the given hash.
-	Open(hash string) (io.ReadCloser, error)
+	Open(hash string) (io.ReadSeekCloser, error)
 
 	// Exists checks if a blob with the given hash exists.
 	Exists(hash string) (bool, error)

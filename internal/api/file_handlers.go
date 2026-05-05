@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -71,11 +70,9 @@ func (s *Server) handleFileDownload(c echo.Context) error {
 	defer reader.Close()
 
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.OriginalName))
-	c.Response().Header().Set("Content-Type", "application/octet-stream")
-	c.Response().Header().Set("Content-Length", fmt.Sprintf("%d", f.Edges.Blob.Size))
-
-	_, err = io.Copy(c.Response().Writer, reader)
-	return err
+	// http.ServeContent handles Range requests, Content-Type, and Content-Length automatically.
+	http.ServeContent(c.Response().Writer, c.Request(), f.OriginalName, f.Edges.Blob.CreatedAt, reader)
+	return nil
 }
 
 func (s *Server) handleFileDelete(c echo.Context) error {

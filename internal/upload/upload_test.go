@@ -33,8 +33,8 @@ type mockStorage struct {
 func (m *mockStorage) PutFromPath(path string) (*storage.BlobInfo, error) {
 	return m.putFromPathFunc(path)
 }
-func (m *mockStorage) Open(hash string) (io.ReadCloser, error) { return nil, nil }
-func (m *mockStorage) Exists(hash string) (bool, error)        { return false, nil }
+func (m *mockStorage) Open(hash string) (io.ReadSeekCloser, error) { return nil, nil }
+func (m *mockStorage) Exists(hash string) (bool, error)           { return false, nil }
 func (m *mockStorage) Delete(hash string) error {
 	if m.delFunc != nil {
 		return m.delFunc(hash)

@@ -138,7 +138,7 @@ func moveFile(src, dst string) error {
 }
 
 // Open returns a reader for a stored blob hash.
-func (s *FileStorage) Open(hash string) (io.ReadCloser, error) {
+func (s *FileStorage) Open(hash string) (io.ReadSeekCloser, error) {
 	fullPath := filepath.Join(s.basePath, s.getRelativePath(hash))
 	return os.Open(fullPath)
 }

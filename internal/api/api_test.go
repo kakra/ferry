@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1005,4 +1007,72 @@ func attachSessionValues(t *testing.T, srv *Server, req *http.Request, values ma
 	}
 	_ = sess.Save(req, rec)
 	req.Header.Set("Cookie", rec.Header().Get("Set-Cookie"))
+}
+
+func TestHandleFileDownload_RangeSupport(t *testing.T) {
+	srv, cfg := setupBaseServer(t)
+	ctx := context.Background()
+
+	// 1. Create content in storage
+	content := []byte("0123456789ABCDEF")
+	hash := "e887dc990ddd8bc304b0e1eede7670fc958977be09748adfff18c1f20a7f5958" // real-looking hash
+	storageDir := cfg.Storage.Path
+	relPath := filepath.Join(hash[0:2], hash[2:4], hash)
+	fullPath := filepath.Join(storageDir, relPath)
+	os.MkdirAll(filepath.Dir(fullPath), 0700)
+	err := os.WriteFile(fullPath, content, 0600)
+	require.NoError(t, err)
+
+	// 2. Create DB records
+	blob, err := srv.db.Blob.Create().
+		SetID(hash).
+		SetSize(int64(len(content))).
+		SetStoragePath(relPath).
+		Save(ctx)
+	require.NoError(t, err)
+
+	token := "range-test-token"
+	sh, err := srv.db.Share.Create().
+		SetTitle("Range Test").
+		SetTokenHash(internalShare.HashToken(token, cfg.Security.TokenSecret)).
+		SetExpiresAt(mustTimeNowPlusHour()).
+		Save(ctx)
+	require.NoError(t, err)
+
+	f, err := srv.db.File.Create().
+		SetOriginalName("test.txt").
+		SetBlob(blob).
+		SetShare(sh).
+		Save(ctx)
+	require.NoError(t, err)
+
+	t.Run("Full download", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/s/%s/files/%s/download", token, f.ID), nil)
+		attachSessionValues(t, srv, req, map[interface{}]interface{}{
+			guestSessionPrefix + token:    true,
+			guestUnlockVersionKey + token: sh.UnlockVersion,
+		})
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, content, rec.Body.Bytes())
+		assert.Equal(t, fmt.Sprintf("%d", len(content)), rec.Header().Get("Content-Length"))
+	})
+
+	t.Run("Range download", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/s/%s/files/%s/download", token, f.ID), nil)
+		req.Header.Set("Range", "bytes=5-10")
+		attachSessionValues(t, srv, req, map[interface{}]interface{}{
+			guestSessionPrefix + token:    true,
+			guestUnlockVersionKey + token: sh.UnlockVersion,
+		})
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusPartialContent, rec.Code)
+		assert.Equal(t, "56789A", rec.Body.String())
+		assert.Equal(t, "6", rec.Header().Get("Content-Length"))
+		assert.Equal(t, fmt.Sprintf("bytes 5-10/%d", len(content)), rec.Header().Get("Content-Range"))
+	})
 }
